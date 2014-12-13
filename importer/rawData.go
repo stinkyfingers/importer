@@ -4,8 +4,8 @@ import (
 	"encoding/csv"
 	"github.com/curt-labs/polkImporter/helpers/database"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"log"
+	// "gopkg.in/mgo.v2/bson"
+	// "log"
 	"os"
 	"strconv"
 )
@@ -55,13 +55,18 @@ type CsvVehicle struct {
 
 func CaptureCsv(filename string, headerLines int) error {
 	var err error
-	var cs []CsvVehicle
+	// var cs []CsvVehicle
 
 	// url := os.Getenv("MONGOHQ_URL")
 	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
 	defer session.Close()
 
 	csvfile, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	collection := session.DB("importer").C("ariesTest")
+	err = collection.DropCollection()
 	if err != nil {
 		return err
 	}
@@ -165,30 +170,13 @@ func CaptureCsv(filename string, headerLines int) error {
 			DistributedPartOpportunity: DistributedPartOpportunity,
 			MaximumPartOpportunity:     MaximumPartOpportunity,
 		}
-		cs = append(cs, c)
+
+		err = collection.Insert(&c)
+		// cs = append(cs, c)
 
 	}
 	//insert into mongoDB
-	collection := session.DB("importer").C("raw")
-	err = collection.Insert(&cs)
-	return err
-}
-
-func GetRawData() error {
-	var err error
-	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
-	if err != nil {
-		return err
-	}
-	defer session.Close()
-
-	collection := session.DB("importer").C("raw")
-	// result := CsvVehicle{}
-	results := []CsvVehicle{}
-	err = collection.Find(bson.M{"make": "MERCEDES-BENZ"}).All(&results)
-	if err != nil {
-		return err
-	}
-	log.Print(results)
+	// collection := session.DB("importer").C("raw")
+	// err = collection.Insert(&cs)
 	return err
 }
