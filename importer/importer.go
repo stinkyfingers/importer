@@ -8,7 +8,7 @@ import (
 
 	"log"
 	// "os"
-	// "reflect"
+	"reflect"
 	// "runtime"
 	// "strconv"
 	// "strings"
@@ -16,6 +16,12 @@ import (
 
 type BaseVehicleRaw struct {
 	ID         int    `bson:"baseVehicleId,omitempty"`
+	VehicleID  int    `bson:"vehicleId,omitempty"`
+	PartNumber string `bson:"partNumber,omitempty"`
+}
+
+type SubmodelRaw struct {
+	ID         int    `bson:"submodelId,omitempty"`
 	VehicleID  int    `bson:"vehicleId,omitempty"`
 	PartNumber string `bson:"partNumber,omitempty"`
 }
@@ -30,12 +36,6 @@ type Vehicle struct {
 	PartNumbers []string
 }
 
-type VehicleRaw struct {
-	BaseID     int
-	VehicleID  int
-	PartNumber string
-}
-
 func Run(filename string, headerLines int, useOldPartNumbers bool, insertMissingData bool) error {
 	log.Print("Running")
 	var err error
@@ -43,6 +43,18 @@ func Run(filename string, headerLines int, useOldPartNumbers bool, insertMissing
 	if err != nil {
 		return err
 	}
+	return err
+}
+
+func RunAfterMongo() error {
+	bvs, err := MongoToBase()
+	if err != nil {
+		return err
+	}
+	bases := BvgArray(bvs)
+	baseIds := AuditBaseVehicles(bases)
+	sbs, err := MongoToSubmodel(baseIds)
+	log.Print(len(sbs))
 	return err
 }
 
@@ -60,7 +72,21 @@ func MongoToBase() ([]BaseVehicleRaw, error) {
 	return bvs, err
 }
 
-func BetterBase(bvs []BaseVehicleRaw) {
+func MongoToSubmodel(baseIds []int) ([]SubmodelRaw, error) {
+	var err error
+	var sbs []SubmodelRaw
+	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
+	if err != nil {
+		return sbs, err
+	}
+	defer session.Close()
+	collection := session.DB("importer").C("ariesTest")
+	err = collection.Find(baseIds).All(&sbs) //TODO - select WHERE
+
+	return sbs, err
+}
+
+func BvgArray(bvs []BaseVehicleRaw) []BaseVehicleGroup {
 	var bases []BaseVehicleGroup
 	for _, row := range bvs {
 		addB := true
@@ -103,79 +129,27 @@ func BetterBase(bvs []BaseVehicleRaw) {
 			bases = append(bases, bg)
 		}
 	}
-	for _, bbb := range bases {
-		log.Print(bbb)
-	}
-	log.Print(len(bases))
-
+	return bases
 }
 
-func MakeBaseVehicles(bvs []BaseVehicleRaw) {
-	var bases []BaseVehicleGroup
-
-	for _, row := range bvs {
-		var v Vehicle
-		var b BaseVehicleGroup
-		addB := true
-		for _, base := range bases {
-			if base.BaseID == row.ID {
-				addB = false
-
-				addV := true
-				for _, veh := range base.Vehicles {
-					if veh.ID == row.VehicleID {
-						addV = false
-						addP := true
-						for _, p := range veh.PartNumbers {
-							if p == row.PartNumber {
-								addP = false
-							}
-						}
-						if addP == true {
-							veh.PartNumbers = append(veh.PartNumbers, row.PartNumber)
-							log.Print("append part", row.PartNumber, "to v ", veh.ID)
-						}
-					}
-				}
-				if addV == true {
-					var tempV Vehicle
-					tempV.PartNumbers = append(tempV.PartNumbers, row.PartNumber)
-					tempV.ID = row.VehicleID
-					log.Print("TEMP", tempV)
-					base.Vehicles = append(base.Vehicles, tempV)
-
-				}
+func AuditBaseVehicles(bases []BaseVehicleGroup) []int {
+	var baseIds []int
+	for _, base := range bases {
+		allSame := true
+		for i := 0; i < len(base.Vehicles); i++ {
+			if i > 0 {
+				allSame = reflect.DeepEqual(base.Vehicles[i].PartNumbers, base.Vehicles[i-1].PartNumbers)
+				log.Print(allSame)
 			}
+		}
+		if allSame == true {
+			// log.Print(base)
+			//check and add part(s) to base vehicle
+		} else {
+			//add base to submodel group - will search for submodels by baseId
+			baseIds = append(baseIds, base.BaseID)
 
 		}
-		if addB == true {
-			v.ID = row.VehicleID
-			v.PartNumbers = append(v.PartNumbers, row.PartNumber)
-			b.Vehicles = append(b.Vehicles, v)
-			b.BaseID = row.ID
-			bases = append(bases, b)
-			log.Print("ROW", row)
-		}
-
 	}
-	for _, bb := range bases {
-		log.Print(bb)
-	}
-
-}
-
-func MakeBaseMap(bvs []BaseVehicleRaw) {
-	// vmap := make(map[int][]string)
-	bmap := make(map[int][]map[int][]string)
-
-	for _, row := range bvs {
-		tempmap := make(map[int][]string)
-		tempmap[row.VehicleID] = append(tempmap[row.VehicleID], row.PartNumber)
-		bmap[row.ID] = append(bmap[row.ID], tempmap)
-
-	}
-	// log.Print((bmap))
-	for i, row := range bmap {
-		log.Print(i, row, "\n")
-	}
+	return baseIds
 }

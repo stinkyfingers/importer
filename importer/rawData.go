@@ -65,7 +65,7 @@ func CaptureCsv(filename string, headerLines int) error {
 	if err != nil {
 		return err
 	}
-	collection := session.DB("importer").C("ariesTest")
+	collection := session.DB("importer").C("raw")
 	err = collection.DropCollection()
 	if err != nil {
 		return err

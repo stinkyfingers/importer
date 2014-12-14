@@ -15,12 +15,16 @@ func TestImporter(t *testing.T) {
 		// err := Run(file, 1, true, false)
 		// So(err, ShouldBeNil)
 
-		bvs, err := MongoToBase()
-		So(err, ShouldBeNil)
-		So(bvs, ShouldNotBeNil)
+		// bvs, err := MongoToBase()
+		// So(err, ShouldBeNil)
+		// So(bvs, ShouldNotBeNil)
 
-		BetterBase(bvs)
-		// So(baseMap, ShouldNotBeNil)
+		// bases := BvgArray(bvs)
+		// So(bases, ShouldNotBeNil)
+
+		// AuditBaseVehicles(bases)
+
+		RunAfterMongo()
 
 	})
 
