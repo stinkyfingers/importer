@@ -19,9 +19,12 @@ func RunAfterCsvMongoed() error {
 	if err != nil {
 		return err
 	}
+	log.Print("Total baseVehicles to check: ", len(bvs))
+
 	bases := BvgArray(bvs)
+
 	baseIds, err := AuditBaseVehicles(bases)
-	log.Print("Number of base models to pass into submodels: ", len(baseIds))
+	log.Print("Number of groups of base models to pass into submodels: ", len(baseIds))
 
 	sbs, err := MongoToSubmodel(baseIds)
 	if err != nil {
@@ -34,17 +37,18 @@ func RunAfterCsvMongoed() error {
 	if err != nil {
 		return err
 	}
-	log.Print("Number of submodels to pass into configurations: ", len(subIds))
+	log.Print("Number of groups of submodels to pass into configurations: ", len(subIds))
 
 	configVehicles, err := MongoToConfig(subIds)
+	log.Print("Total vehicles to check: ", len(configVehicles))
 
 	cons := CgArray(configVehicles)
-	// for _, c := range cons {
-	// 	log.Print(c)
-	// }
-	log.Print("Number of vehicles to audit the configurations of: ", len(cons))
+	log.Print("Number of vehicles (grouped by VehicleID) to audit the configurations of: ", len(cons))
 
 	err = AuditConfigs(cons)
+	if err != nil {
+		return err
+	}
 
 	return err
 }

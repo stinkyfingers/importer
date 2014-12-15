@@ -8,6 +8,8 @@ import (
 func TestImporter(t *testing.T) {
 
 	Convey("Test Polk Diff", t, func() {
+		//Import and mongo-ize csv
+
 		// file := "/Users/macuser/Desktop/Polk/AriesTestData.csv"
 		// file := "/Users/macuser/Desktop/Polk/CurtTestData.csv"
 		// file := "/Users/macuser/Desktop/Polk/AriesLongTestData.csv"
@@ -16,16 +18,10 @@ func TestImporter(t *testing.T) {
 		// err := Run(file, 1, true, false)
 		// So(err, ShouldBeNil)
 
-		// bvs, err := MongoToBase()
-		// So(err, ShouldBeNil)
-		// So(bvs, ShouldNotBeNil)
+		//Process data from Mongo
 
-		// bases := BvgArray(bvs)
-		// So(bases, ShouldNotBeNil)
-
-		// AuditBaseVehicles(bases)
-
-		RunAfterCsvMongoed()
+		err = RunAfterCsvMongoed()
+		So(err, ShouldNotBeNil)
 
 	})
 

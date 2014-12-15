@@ -10,7 +10,6 @@ import (
 	"errors"
 	"log"
 	"os"
-	// "reflect"
 	"strconv"
 	"strings"
 )
@@ -44,12 +43,6 @@ type ConfigVehicleRaw struct {
 	PartNumber        string  `bson:"partNumber,omitempty"`
 }
 
-// type ConfigVehicleGroup struct {
-// 	SubID    int `bson:"submodelId,omitempty"`
-// 	BaseID   int `bson:"baseVehicleId,omitempty"`
-// 	Vehicles []Vehicle
-// }
-
 type ConfigVehicleGroup struct {
 	VehicleID      int `bson:"vehicleId,omitempty"`
 	SubID          int `bson:"submodelId,omitempty"`
@@ -61,10 +54,6 @@ var (
 	configMapStmt = `select ca.ConfigAttributeTypeID, cat.AcesTypeID, ca.vcdbID, ca.ID 
 			from CurtDev.ConfigAttribute as ca 
 			join CurtDev.ConfigAttributeType as cat on cat.ID = ca.ConfigAttributeTypeID`
-	// checkConfigAttributeTypeStmt = `select ID from ConfigAttributeType where AcesTypeID = ?`
-	// checkConfigAttributeStmt     = `select ca.ID from ConfigAttribute as ca
-	// 	where ca.ConfigAttributeTypeID = ?
-	// 	and vcdbID = ?`
 
 	checkVehicleJoin = `select v.ID, vca.VehicleConfigID from vcdb_Vehicle as v 
 		join BaseVehicle as b on b.ID = v.BaseVehicleID
@@ -73,28 +62,12 @@ var (
 		where b.AAIABaseVehicleID = ?
 		and s.AAIASubmodelID = ?
 		and vca.AttributeID = ?`
-
-	// checkVehicleConfigAttributeStmt = `  select vca.VehicleConfigID from VehicleConfigAttribute as vca
-	// 	join vcdb_Vehicle as v on v.ConfigID = vca.VehicleConfigID
-	// 	join BaseVehicle as b on b.ID = v.BaseVehicleID
-	// 	join Submodel as s on s.ID = v.SubmodelID
-	// 	where vca.AttributeID = ?
-	// 	and b.AAIABaseModelID = ?
-	// 	and s.AAIASubmodelID = ?`
-	// checkVehicleConfig = `select v.ID from vcdb_Vehicle as v
-	// 	join BaseVehicle as b on b.ID = v.BaseVehicleID
-	// 	join Submodel as s on s.ID = v.SubmodelID
-	// 	where b.AAIABaseVehicleID = ?
-	// 	and s.AAIASubmodelID = ?
-	// 	and v.ConfigID = ?`
 )
 
 var (
 	ConfigTypesOffset   int64 = 0
 	ConfigOffset        int64 = 0
 	VehicleConfigOffset int64 = 0
-	// MissingConfigs        *os.File
-	// MissingVehicleConfigs *os.File
 )
 
 //For all mongodb entries, returns BaseVehicleRaws
@@ -145,41 +118,6 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	if err != nil {
 		return err
 	}
-	// //files - missing configTypes - there is no Curt ConfigAttributeType for this AAIAConfigType, but vehicles are differenetiated by it
-	// missingConfigTypes, err := os.Create("MissingConfigTypes.csv")
-	// if err != nil {
-	// 	return err
-	// }
-	// configTypesOffset := int64(0)
-	// h := []byte("AAIAConfigTypeID\n")
-	// n, err := missingConfigTypes.WriteAt(h, configTypesOffset)
-	// configTypesOffset += int64(n)
-
-	// //files - missing aces configs - there is a curt ConfigType, but no curt configValue corresponding to the AAIAConfig value
-	// missingConfigs, err := os.Create("MissingConfigs.csv")
-	// if err != nil {
-	// 	return err
-	// }
-	// configOffset := int64(0)
-	// h = []byte("AAIAConfigID,AAIAConfigTypeID\n")
-	// n, err = missingConfigs.WriteAt(h, configOffset)
-	// if err != nil {
-	// 	return err
-	// }
-	// configOffset += int64(n)
-
-	// //files - configs needed in VehicleConfigAttribute (join table and vcdb_Vehicle table)
-	// missingVehicleConfigs, err := os.Create("VehicleConfigurationsNeeded.csv")
-	// if err != nil {
-	// 	return err
-	// }
-	// vehicleConfigOffset := int64(0)
-	// h = []byte("TypeID,ConfigID,AAIABaseID,AAIASubmodelID\n")
-	// n, err = missingVehicleConfigs.WriteAt(h, vehicleConfigOffset)
-	// if err != nil {
-	// 	return err
-	// }
-	// vehicleConfigOffset += int64(n)
 
 	for _, configVehicleGroup := range configVehicleGroups {
 		fuelType := false
@@ -276,7 +214,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 
 		//fueltype
 		if fuelType == true {
-			log.Print("FUEL type TRUE")
+			log.Print("fuelType")
 			acesType := 6
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.FuelTypeID)
@@ -290,7 +228,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 
 		//fueldelivery
 		if fuelDeliveryID == true {
-			log.Print("FUEL DEL TRUE")
+			log.Print("fuelDeliveryID ")
 			acesType := 20
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.FuelDeliveryID)
@@ -303,7 +241,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//aspiration
 		if aspirationID == true {
-			log.Print("Aspiration")
+			log.Print("aspirationID")
 			acesType := 8
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.AspirationID)
@@ -316,7 +254,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//drive type
 		if driveTypeID == true {
-			log.Print("Drive type")
+			log.Print("driveTypeID")
 			acesType := 8
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.DriveTypeID)
@@ -329,7 +267,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//body type
 		if bodyTypeID == true {
-			log.Print("Body type")
+			log.Print("bodyTypeID")
 			acesType := 2
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.BodyTypeID)
@@ -342,7 +280,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//body num doors
 		if bodyNumDoorsID == true {
-			log.Print("Aspiration")
+			log.Print("bodyNumDoorsID")
 			acesType := 4
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.BodyNumDoorsID)
@@ -355,7 +293,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//engine vin
 		if engineVinID == true {
-			log.Print("Aspiration")
+			log.Print("engineVinID")
 			acesType := 16
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.PowerOutputID)
@@ -368,7 +306,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//power output
 		if powerOutputID == true {
-			log.Print("CYL")
+			log.Print("powerOutputID")
 			acesType := 25
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.PowerOutputID)
@@ -381,7 +319,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//fuel del - TODO is this that same as subtype
 		if fuelDelConfigID == true {
-			log.Print("CYL")
+			log.Print("fuelDelConfigID")
 			acesType := 19
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.FuelDelConfigID)
@@ -394,7 +332,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//valves
 		if valvesID == true {
-			log.Print("CYL")
+			log.Print("valvesID")
 			acesType := 40
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.ValvesID)
@@ -407,7 +345,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//cyl head type
 		if cylHeadTypeID == true {
-			log.Print("CYL")
+			log.Print("cylHeadTypeID")
 			acesType := 12
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.CylHeadTypeID)
@@ -420,7 +358,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 		//engine base - TODO - is this "Engine?"
 		if engineBaseID == true {
-			log.Print("CYL")
+			log.Print("engineBaseID")
 			acesType := 7
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.EngineBaseID)
@@ -493,7 +431,6 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			ConfigTypesOffset += int64(n)
 		}
 		if acesCID == true {
-			log.Print("TREU")
 			b := []byte("acesCID\n")
 			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
 			if err != nil {
@@ -551,7 +488,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 
 	} //end of spot-checking each attribute
-	log.Print("MADE IT")
+	log.Print("MADE IT TO THE END. ", err)
 	return err
 }
 
@@ -565,7 +502,7 @@ func auditConfigs(acesType int, acesValue int, configMap map[string]string, c Co
 			b := []byte(strconv.Itoa(acesValue) + "," + strconv.Itoa(acesType) + "\n")
 			n, err := MissingConfigs.WriteAt(b, ConfigOffset)
 			if err != nil {
-				log.Print("HERE ", err)
+				log.Print("configAudit err; writing MissingConfigs ", err)
 				return err
 			}
 			ConfigOffset += int64(n)
@@ -584,7 +521,7 @@ func auditConfigs(acesType int, acesValue int, configMap map[string]string, c Co
 				b := []byte(strconv.Itoa(typeID) + "," + strconv.Itoa(valueID) + "," + strconv.Itoa(c.BaseID) + "," + strconv.Itoa(c.SubmodelID) + "\n")
 				n, err := MissingVehicleConfigs.WriteAt(b, VehicleConfigOffset)
 				if err != nil {
-					log.Print("HERE", err)
+					log.Print("configAudit error; writing MissingVehicleConfigs ", err)
 					return err
 				}
 				VehicleConfigOffset += int64(n)

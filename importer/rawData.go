@@ -4,8 +4,6 @@ import (
 	"encoding/csv"
 	"github.com/curt-labs/polkImporter/helpers/database"
 	"gopkg.in/mgo.v2"
-	// "gopkg.in/mgo.v2/bson"
-	// "log"
 	"os"
 	"strconv"
 )
