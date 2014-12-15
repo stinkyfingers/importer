@@ -37,7 +37,7 @@ var (
 )
 
 //take int array (baseModelID) and return array of SubmodelRaw objects
-func MongoToSubmodel(baseIds []int) ([]SubmodelRaw, error) {
+func MongoToSubmodel(baseIds []int, dbCollection string) ([]SubmodelRaw, error) {
 	var err error
 	var sbs []SubmodelRaw
 	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
@@ -45,7 +45,7 @@ func MongoToSubmodel(baseIds []int) ([]SubmodelRaw, error) {
 		return sbs, err
 	}
 	defer session.Close()
-	collection := session.DB("importer").C("ariesTest")
+	collection := session.DB("importer").C(dbCollection)
 	err = collection.Find(bson.M{"baseVehicleId": bson.M{"$in": baseIds}}).All(&sbs)
 
 	return sbs, err

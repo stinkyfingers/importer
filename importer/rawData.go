@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"github.com/curt-labs/polkImporter/helpers/database"
 	"gopkg.in/mgo.v2"
+	"log"
 	"os"
 	"strconv"
 )
@@ -51,20 +52,30 @@ type CsvVehicle struct {
 	MaximumPartOpportunity     int     `bson:"maximumPartOpportunity,omitempty"`
 }
 
-func CaptureCsv(filename string, headerLines int) error {
+func CaptureCsv(filename string, headerLines int, dbCollectionName string) error {
 	var err error
 
 	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
+	if err != nil {
+		return err
+	}
 	defer session.Close()
 
 	csvfile, err := os.Open(filename)
 	if err != nil {
 		return err
 	}
-	collection := session.DB("importer").C("ariesTest")
+	collection := session.DB("importer").C(dbCollectionName)
+
 	err = collection.DropCollection()
 	if err != nil {
-		return err
+		if err.Error() == "ns not found" {
+			err = nil
+		} else {
+			log.Print("HERE", err)
+			return err
+		}
+
 	}
 
 	defer csvfile.Close()

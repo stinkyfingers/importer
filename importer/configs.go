@@ -71,7 +71,7 @@ var (
 )
 
 //For all mongodb entries, returns BaseVehicleRaws
-func MongoToConfig(subIds []int) ([]ConfigVehicleRaw, error) {
+func MongoToConfig(subIds []int, dbCollection string) ([]ConfigVehicleRaw, error) {
 	var err error
 	var cgs []ConfigVehicleRaw
 	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
@@ -79,7 +79,7 @@ func MongoToConfig(subIds []int) ([]ConfigVehicleRaw, error) {
 		return cgs, err
 	}
 	defer session.Close()
-	collection := session.DB("importer").C("ariesTest")
+	collection := session.DB("importer").C(dbCollection)
 	err = collection.Find(bson.M{"submodelId": bson.M{"$in": subIds}}).All(&cgs)
 	return cgs, err
 }

@@ -8,20 +8,26 @@ import (
 func TestImporter(t *testing.T) {
 
 	Convey("Test Polk Diff", t, func() {
-		//Import and mongo-ize csv
+		// // Import and mongo-ize csv
 
 		// file := "/Users/macuser/Desktop/Polk/AriesTestData.csv"
+
 		// file := "/Users/macuser/Desktop/Polk/CurtTestData.csv"
+
 		// file := "/Users/macuser/Desktop/Polk/AriesLongTestData.csv"
+
 		// file := "/Users/macuser/Desktop/Polk/Aries_Offroad_Coverage_US_201410.csv"
+		dbCollection := "aries"
+
 		// file := "/Users/macuser/Desktop/Polk/Trailer_Hitches_Coverage_US_201410.csv"
-		// err := Run(file, 1, true, false)
+
+		// err := Run(file, 1, dbCollection)
 		// So(err, ShouldBeNil)
 
-		//Process data from Mongo
+		// // Process data from Mongo
 
-		err = RunAfterCsvMongoed()
-		So(err, ShouldNotBeNil)
+		err := RunAfterCsvMongoed(dbCollection)
+		So(err, ShouldBeNil)
 
 	})
 

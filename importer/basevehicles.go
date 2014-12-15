@@ -43,7 +43,7 @@ var (
 )
 
 //For all mongodb entries, returns BaseVehicleRaws
-func MongoToBase() ([]BaseVehicleRaw, error) {
+func MongoToBase(dbCollection string) ([]BaseVehicleRaw, error) {
 	var err error
 	var bvs []BaseVehicleRaw
 	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
@@ -51,7 +51,7 @@ func MongoToBase() ([]BaseVehicleRaw, error) {
 		return bvs, err
 	}
 	defer session.Close()
-	collection := session.DB("importer").C("ariesTest")
+	collection := session.DB("importer").C(dbCollection)
 	err = collection.Find(nil).All(&bvs)
 	return bvs, err
 }

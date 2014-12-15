@@ -4,18 +4,18 @@ import (
 	"log"
 )
 
-func Run(filename string, headerLines int, useOldPartNumbers bool, insertMissingData bool) error {
+func Run(filename string, headerLines int, dbCollection string) error {
 	log.Print("Running")
 	var err error
-	err = CaptureCsv(filename, headerLines)
+	err = CaptureCsv(filename, headerLines, dbCollection)
 	if err != nil {
 		return err
 	}
 	return err
 }
 
-func RunAfterCsvMongoed() error {
-	bvs, err := MongoToBase()
+func RunAfterCsvMongoed(dbCollection string) error {
+	bvs, err := MongoToBase(dbCollection)
 	if err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func RunAfterCsvMongoed() error {
 	baseIds, err := AuditBaseVehicles(bases)
 	log.Print("Number of groups of base models to pass into submodels: ", len(baseIds))
 
-	sbs, err := MongoToSubmodel(baseIds)
+	sbs, err := MongoToSubmodel(baseIds, dbCollection)
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func RunAfterCsvMongoed() error {
 	}
 	log.Print("Number of groups of submodels to pass into configurations: ", len(subIds))
 
-	configVehicles, err := MongoToConfig(subIds)
+	configVehicles, err := MongoToConfig(subIds, dbCollection)
 	log.Print("Total vehicles to check: ", len(configVehicles))
 
 	cons := CgArray(configVehicles)
