@@ -166,17 +166,18 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 //returns Curt vcdb_VehicleID and err
 func CheckBaseVehicleAndParts(aaiaBaseId int, partNumber string) (int, error) {
 	db, err := sql.Open("mysql", database.ConnectionString())
+	defer db.Close()
 	if err != nil {
 		return 0, err
 	}
-	defer db.Close()
 
 	//check base vehicle existence
 	stmt, err := db.Prepare(getVehicleIdFromAAIABase)
+	defer stmt.Close()
 	if err != nil {
 		return 0, err
 	}
-	defer stmt.Close()
+
 	var vehicleID int
 	err = stmt.QueryRow(aaiaBaseId).Scan(&vehicleID)
 	if err != nil {
@@ -189,6 +190,10 @@ func CheckBaseVehicleAndParts(aaiaBaseId int, partNumber string) (int, error) {
 
 	//check partnum
 	stmt, err = db.Prepare(getVehiclePart)
+	defer stmt.Close()
+	if err != nil {
+		return 0, err
+	}
 	var partID int
 	err = stmt.QueryRow(partNumber, &vehicleID).Scan(&partID)
 	if err != nil {
