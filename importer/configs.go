@@ -69,7 +69,7 @@ var (
 	checkVehicleJoin = `select v.ID, vca.VehicleConfigID from vcdb_Vehicle as v 
 		join BaseVehicle as b on b.ID = v.BaseVehicleID
 		join Submodel as s on s.ID = v.SubmodelID
-		join VehicleConfigAttribute as vac on vca.VehicleConfigID = v.ConfigID
+		join VehicleConfigAttribute as vca on vca.VehicleConfigID = v.ConfigID
 		where b.AAIABaseVehicleID = ?
 		and s.AAIASubmodelID = ?
 		and vca.AttributeID = ?`
@@ -87,6 +87,14 @@ var (
 	// 	where b.AAIABaseVehicleID = ?
 	// 	and s.AAIASubmodelID = ?
 	// 	and v.ConfigID = ?`
+)
+
+var (
+	ConfigTypesOffset   int64 = 0
+	ConfigOffset        int64 = 0
+	VehicleConfigOffset int64 = 0
+	// MissingConfigs        *os.File
+	// MissingVehicleConfigs *os.File
 )
 
 //For all mongodb entries, returns BaseVehicleRaws
@@ -131,171 +139,511 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		return err
 	}
 
-	//files - missing aces configs
-	missingConfigs, err := os.Create("MissingConfigs.csv")
+	MissingConfigTypes, _, err := createMissingConfigTypesFile()
+	MissingConfigs, _, err := createMissingConfigsFile()
+	MissingVehicleConfigs, _, err := createMissingVehicleConfigurationsFile()
 	if err != nil {
 		return err
 	}
-	configOffset := int64(0)
-	h := []byte("AAIAConfigID,AAIAConfigTypeID\n")
-	n, err := missingConfigs.WriteAt(h, configOffset)
-	if err != nil {
-		return err
-	}
-	configOffset += int64(n)
+	// //files - missing configTypes - there is no Curt ConfigAttributeType for this AAIAConfigType, but vehicles are differenetiated by it
+	// missingConfigTypes, err := os.Create("MissingConfigTypes.csv")
+	// if err != nil {
+	// 	return err
+	// }
+	// configTypesOffset := int64(0)
+	// h := []byte("AAIAConfigTypeID\n")
+	// n, err := missingConfigTypes.WriteAt(h, configTypesOffset)
+	// configTypesOffset += int64(n)
 
-	//files - configs needed in VehicleConfigAttribute
-	missingVehicleConfigs, err := os.Create("VehicleConfigurationsNeeded")
-	if err != nil {
-		return err
-	}
-	vehicleConfigOffset := int64(0)
-	h = []byte("TypeID,ConfigID,AAIABaseID,AAIASubmodelID\n")
-	n, err = missingVehicleConfigs.WriteAt(h, vehicleConfigOffset)
-	if err != nil {
-		return err
-	}
-	vehicleConfigOffset += int64(n)
+	// //files - missing aces configs - there is a curt ConfigType, but no curt configValue corresponding to the AAIAConfig value
+	// missingConfigs, err := os.Create("MissingConfigs.csv")
+	// if err != nil {
+	// 	return err
+	// }
+	// configOffset := int64(0)
+	// h = []byte("AAIAConfigID,AAIAConfigTypeID\n")
+	// n, err = missingConfigs.WriteAt(h, configOffset)
+	// if err != nil {
+	// 	return err
+	// }
+	// configOffset += int64(n)
+
+	// //files - configs needed in VehicleConfigAttribute (join table and vcdb_Vehicle table)
+	// missingVehicleConfigs, err := os.Create("VehicleConfigurationsNeeded.csv")
+	// if err != nil {
+	// 	return err
+	// }
+	// vehicleConfigOffset := int64(0)
+	// h = []byte("TypeID,ConfigID,AAIABaseID,AAIASubmodelID\n")
+	// n, err = missingVehicleConfigs.WriteAt(h, vehicleConfigOffset)
+	// if err != nil {
+	// 	return err
+	// }
+	// vehicleConfigOffset += int64(n)
 
 	for _, configVehicleGroup := range configVehicleGroups {
-		// fuelType := false
-		// fuelDeliveryID := false
-		// acesLiter := false
-		// acesCC := false
-		// acesCID := false
-		// acesCyl := false
-		// acesBlockType := false
-		// aspirationID := false
-		// driveTypeID := false
-		// bodyTypeID := false
-		// bodyNumDoorsID := false
-		// engineVinID := false
-		// regionID := false
-		// powerOutputID := false
-		// fuelDelConfigID := false
-		// bodyStyleConfigID := false
-		// valvesID := false
+		fuelType := false
+		fuelDeliveryID := false
+		acesLiter := false
+		acesCC := false
+		acesCID := false
+		acesCyl := false
+		acesBlockType := false
+		aspirationID := false
+		driveTypeID := false
+		bodyTypeID := false
+		bodyNumDoorsID := false
+		engineVinID := false
+		regionID := false
+		powerOutputID := false
+		fuelDelConfigID := false
+		bodyStyleConfigID := false
+		valvesID := false
 		cylHeadTypeID := false
-		// blockType := false
-		// engineBaseID := false
-		// engineConfigID := false
+		blockType := false
+		engineBaseID := false
+		engineConfigID := false
 		for i, configs := range configVehicleGroup.ConfigVehicles {
 			if i > 0 { //not the first configVehicle
 
-				// if configs.FuelTypeID != configVehicleGroup.ConfigVehicles[i-1].FuelTypeID {
-				// 	fuelType = true
-				// }
-				// if configs.FuelDeliveryID != configVehicleGroup.ConfigVehicles[i-1].FuelDeliveryID {
-				// 	fuelDeliveryID = true
-				// }
-				// if configs.AcesLiter != configVehicleGroup.ConfigVehicles[i-1].AcesLiter {
-				// 	acesLiter = true
-				// }
-				// if configs.AcesCC != configVehicleGroup.ConfigVehicles[i-1].AcesCC {
-				// 	acesCC = true
-				// }
-				// if configs.AcesCID != configVehicleGroup.ConfigVehicles[i-1].AcesCID {
-				// 	acesCID = true
-				// }
-				// if configs.AcesCyl != configVehicleGroup.ConfigVehicles[i-1].AcesCyl {
-				// 	acesCyl = true
-				// }
-				// if configs.AcesBlockType != configVehicleGroup.ConfigVehicles[i-1].AcesBlockType {
-				// 	acesBlockType = true
-				// }
-				// if configs.AspirationID != configVehicleGroup.ConfigVehicles[i-1].AspirationID {
-				// 	aspirationID = true
-				// }
-				// if configs.DriveTypeID != configVehicleGroup.ConfigVehicles[i-1].DriveTypeID {
-				// 	driveTypeID = true
-				// }
-				// if configs.BodyTypeID != configVehicleGroup.ConfigVehicles[i-1].BodyTypeID {
-				// 	bodyTypeID = true
-				// }
-				// if configs.BodyNumDoorsID != configVehicleGroup.ConfigVehicles[i-1].BodyNumDoorsID {
-				// 	bodyNumDoorsID = true
-				// }
-				// if configs.EngineVinID != configVehicleGroup.ConfigVehicles[i-1].EngineVinID {
-				// 	engineVinID = true
-				// }
-				// if configs.RegionID != configVehicleGroup.ConfigVehicles[i-1].RegionID {
-				// 	regionID = true
-				// }
-				// if configs.PowerOutputID != configVehicleGroup.ConfigVehicles[i-1].PowerOutputID {
-				// 	powerOutputID = true
-				// }
-				// if configs.FuelDelConfigID != configVehicleGroup.ConfigVehicles[i-1].FuelDelConfigID {
-				// 	fuelDelConfigID = true
-				// }
-				// if configs.BodyStyleConfigID != configVehicleGroup.ConfigVehicles[i-1].BodyStyleConfigID {
-				// 	bodyStyleConfigID = true
-				// }
-				// if configs.ValvesID != configVehicleGroup.ConfigVehicles[i-1].ValvesID {
-				// 	valvesID = true
-				// }
+				if configs.FuelTypeID != configVehicleGroup.ConfigVehicles[i-1].FuelTypeID {
+					fuelType = true
+				}
+				if configs.FuelDeliveryID != configVehicleGroup.ConfigVehicles[i-1].FuelDeliveryID {
+					fuelDeliveryID = true
+				}
+				if configs.AcesLiter != configVehicleGroup.ConfigVehicles[i-1].AcesLiter {
+					acesLiter = true
+				}
+				if configs.AcesCC != configVehicleGroup.ConfigVehicles[i-1].AcesCC {
+					acesCC = true
+				}
+				if configs.AcesCID != configVehicleGroup.ConfigVehicles[i-1].AcesCID {
+					acesCID = true
+				}
+				if configs.AcesCyl != configVehicleGroup.ConfigVehicles[i-1].AcesCyl {
+					acesCyl = true
+				}
+				if configs.AcesBlockType != configVehicleGroup.ConfigVehicles[i-1].AcesBlockType {
+					acesBlockType = true
+				}
+				if configs.AspirationID != configVehicleGroup.ConfigVehicles[i-1].AspirationID {
+					aspirationID = true
+				}
+				if configs.DriveTypeID != configVehicleGroup.ConfigVehicles[i-1].DriveTypeID {
+					driveTypeID = true
+				}
+				if configs.BodyTypeID != configVehicleGroup.ConfigVehicles[i-1].BodyTypeID {
+					bodyTypeID = true
+				}
+				if configs.BodyNumDoorsID != configVehicleGroup.ConfigVehicles[i-1].BodyNumDoorsID {
+					bodyNumDoorsID = true
+				}
+				if configs.EngineVinID != configVehicleGroup.ConfigVehicles[i-1].EngineVinID {
+					engineVinID = true
+				}
+				if configs.RegionID != configVehicleGroup.ConfigVehicles[i-1].RegionID {
+					regionID = true
+				}
+				if configs.PowerOutputID != configVehicleGroup.ConfigVehicles[i-1].PowerOutputID {
+					powerOutputID = true
+				}
+				if configs.FuelDelConfigID != configVehicleGroup.ConfigVehicles[i-1].FuelDelConfigID {
+					fuelDelConfigID = true
+				}
+				if configs.BodyStyleConfigID != configVehicleGroup.ConfigVehicles[i-1].BodyStyleConfigID {
+					bodyStyleConfigID = true
+				}
+				if configs.ValvesID != configVehicleGroup.ConfigVehicles[i-1].ValvesID {
+					valvesID = true
+				}
 				if configs.CylHeadTypeID != configVehicleGroup.ConfigVehicles[i-1].CylHeadTypeID {
 					cylHeadTypeID = true
 				}
-				// if configs.BlockType != configVehicleGroup.ConfigVehicles[i-1].BlockType {
-				// 	blockType = true
-				// }
-				// if configs.EngineBaseID != configVehicleGroup.ConfigVehicles[i-1].EngineBaseID {
-				// 	engineBaseID = true
-				// }
-				// if configs.EngineConfigID != configVehicleGroup.ConfigVehicles[i-1].EngineConfigID {
-				// 	engineConfigID = true
-				// }
+				if configs.BlockType != configVehicleGroup.ConfigVehicles[i-1].BlockType {
+					blockType = true
+				}
+				if configs.EngineBaseID != configVehicleGroup.ConfigVehicles[i-1].EngineBaseID {
+					engineBaseID = true
+				}
+				if configs.EngineConfigID != configVehicleGroup.ConfigVehicles[i-1].EngineConfigID {
+					engineConfigID = true
+				}
 
 			}
 
 		}
-		// if engineConfigID == true {
-		// 	//create vehicles with diff config values for this config type
-		// 	for _, c := range configVehicleGroup.ConfigVehicles {
-		// 		sql := "insert into vcdb_Vehicle (BaseVehicleID, SubModelID, ConfigID) values(" + strconv.Itoa(configVehicleGroup.BaseID) + "," + strconv.Itoa(configVehicleGroup.SubID) + "," + c.EngineConfigID //no
 
-		// 	}
-		// }
-		if cylHeadTypeID == true {
-			log.Print("Diff in cylHeadType")
-			//create vehicles with diff config values for this config type
+		//fueltype
+		if fuelType == true {
+			log.Print("FUEL type TRUE")
+			acesType := 6
 			for _, c := range configVehicleGroup.ConfigVehicles {
-				acesTypeID := 12
-				//search for this configAttribute and configAttributeType. If there are no Curt versions, write the needed aaia configAttibute type and configAttribute to csv
-				typeID, valueID, err := checkConfigID(int(c.CylHeadTypeID), acesTypeID, configMap)
+				acesValue := int(c.FuelTypeID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
-					if err.Error() == "noconfigs" {
-						b := []byte(strconv.Itoa(int(c.CylHeadTypeID)) + "," + strconv.Itoa(acesTypeID) + "\n")
-						n, err = missingConfigs.WriteAt(b, configOffset)
-						configOffset += int64(n)
-						continue
-					} else {
-						return err
-					}
-				} else {
-					//curt configAttribute and configAttributeType found - check for vehicle and join in vehicleConfigAttribute tables
-					//if there are no vehicle/vehicleConfigAttribute join, write this miss to csv
-					vehicleID, vehicleConfigID, err := CheckVehicleConfig(typeID, c.BaseID, c.SubmodelID)
-					if err != nil {
-						if err.Error() == "novehicleconfig" {
-							b := []byte(strconv.Itoa(typeID) + "," + strconv.Itoa(valueID) + "," + strconv.Itoa(c.BaseID) + "," + strconv.Itoa(c.SubmodelID))
-							n, err = missingVehicleConfigs.WriteAt(b, vehicleConfigOffset)
-							if err != nil {
-								return err
-							}
-							vehicleConfigOffset += int64(n)
-						} else {
-							return err
-						}
-					}
-					log.Print(vehicleID, " has config ", vehicleConfigID, " already.")
+					log.Print(err)
+					return err
 				}
 			}
 		}
 
-		//end of spot-checking each attribute
+		//fueldelivery
+		if fuelDeliveryID == true {
+			log.Print("FUEL DEL TRUE")
+			acesType := 20
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.FuelDeliveryID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//aspiration
+		if aspirationID == true {
+			log.Print("Aspiration")
+			acesType := 8
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.AspirationID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//drive type
+		if driveTypeID == true {
+			log.Print("Drive type")
+			acesType := 8
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.DriveTypeID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//body type
+		if bodyTypeID == true {
+			log.Print("Body type")
+			acesType := 2
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.BodyTypeID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//body num doors
+		if bodyNumDoorsID == true {
+			log.Print("Aspiration")
+			acesType := 4
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.BodyNumDoorsID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//engine vin
+		if engineVinID == true {
+			log.Print("Aspiration")
+			acesType := 16
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.PowerOutputID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//power output
+		if powerOutputID == true {
+			log.Print("CYL")
+			acesType := 25
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.PowerOutputID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//fuel del - TODO is this that same as subtype
+		if fuelDelConfigID == true {
+			log.Print("CYL")
+			acesType := 19
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.FuelDelConfigID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//valves
+		if valvesID == true {
+			log.Print("CYL")
+			acesType := 40
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.ValvesID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//cyl head type
+		if cylHeadTypeID == true {
+			log.Print("CYL")
+			acesType := 12
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.CylHeadTypeID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		//engine base - TODO - is this "Engine?"
+		if engineBaseID == true {
+			log.Print("CYL")
+			acesType := 7
+			for _, c := range configVehicleGroup.ConfigVehicles {
+				acesValue := int(c.EngineBaseID)
+				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+
+		// //cylHeadTypeID
+		// if cylHeadTypeID == true {
+		// 	log.Print("CYL")
+		// 	//create vehicles with diff config values for this config type
+		// 	for _, c := range configVehicleGroup.ConfigVehicles {
+		// 		acesTypeID := 12
+		// 		//search for this configAttribute and configAttributeType. If there are no Curt versions, write the needed aaia configAttibute type and configAttribute to csv
+		// 		typeID, valueID, err := checkConfigID(int(c.CylHeadTypeID), acesTypeID, configMap)
+		// 		if err != nil {
+		// 			if err.Error() == "noconfigs" {
+		// 				b := []byte(strconv.Itoa(int(c.CylHeadTypeID)) + "," + strconv.Itoa(acesTypeID) + "\n")
+		// 				n, err := MissingConfigs.WriteAt(b, ConfigOffset)
+		// 				if err != nil {
+		// 					return err
+		// 				}
+		// 				ConfigOffset += int64(n)
+		// 				continue
+		// 			} else {
+		// 				return err
+		// 			}
+		// 		} else {
+		// 			//curt configAttribute and configAttributeType found - check for vehicle and join in vehicleConfigAttribute tables
+		// 			//if there are no vehicle/vehicleConfigAttribute join, write this miss to csv
+		// 			vehicleID, vehicleConfigID, err := CheckVehicleConfig(typeID, c.BaseID, c.SubmodelID)
+		// 			if err != nil {
+		// 				if err.Error() == "novehicleconfig" {
+		// 					b := []byte(strconv.Itoa(typeID) + "," + strconv.Itoa(valueID) + "," + strconv.Itoa(c.BaseID) + "," + strconv.Itoa(c.SubmodelID))
+		// 					n, err := MissingVehicleConfigs.WriteAt(b, VehicleConfigOffset)
+		// 					if err != nil {
+		// 						return err
+		// 					}
+		// 					VehicleConfigOffset += int64(n)
+		// 				} else {
+		// 					return err
+		// 				}
+		// 			} else {
+		// 				log.Print(vehicleID, " has config ", vehicleConfigID, " already.")
+		// 			}
+
+		// 		}
+		// 	}
+		// } //end cylHeadTypeID
+
+		//NON - CURT->ACES CONFIGS
+		if acesLiter == true {
+			b := []byte("acesLiter\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+		if acesCC == true {
+			b := []byte("acesCC\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+		if acesCID == true {
+			log.Print("TREU")
+			b := []byte("acesCID\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+		if acesCyl == true {
+			b := []byte("acesCyl\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+		if acesBlockType == true {
+			b := []byte("acesBlockType\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+		if regionID == true {
+			b := []byte("regionID\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+		if bodyStyleConfigID == true {
+			b := []byte("bodyStyleConfigID\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+		if blockType == true {
+			b := []byte("blockType\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+		if engineConfigID == true {
+			b := []byte("engineConfigID\n")
+			n, err := MissingConfigTypes.WriteAt(b, ConfigTypesOffset)
+			if err != nil {
+				return err
+			}
+			ConfigTypesOffset += int64(n)
+		}
+
+	} //end of spot-checking each attribute
+	log.Print("MADE IT")
+	return err
+}
+
+func auditConfigs(acesType int, acesValue int, configMap map[string]string, c ConfigVehicleRaw, MissingVehicleConfigs *os.File, MissingConfigs *os.File) error {
+	var err error
+
+	//search for this configAttribute and configAttributeType. If there are no Curt versions, write the needed aaia configAttibute type and configAttribute to csv
+	typeID, valueID, err := checkConfigID(acesValue, acesType, configMap)
+	if err != nil {
+		if err.Error() == "noconfigs" {
+			b := []byte(strconv.Itoa(acesValue) + "," + strconv.Itoa(acesType) + "\n")
+			n, err := MissingConfigs.WriteAt(b, ConfigOffset)
+			if err != nil {
+				log.Print("HERE ", err)
+				return err
+			}
+			ConfigOffset += int64(n)
+			return nil
+		} else {
+
+			return err
+		}
+
+	} else {
+		//curt configAttribute and configAttributeType found - check for vehicle and join in vehicleConfigAttribute tables
+		//if there are no vehicle/vehicleConfigAttribute join, write this miss to csv
+		vehicleID, vehicleConfigID, err := CheckVehicleConfig(typeID, c.BaseID, c.SubmodelID)
+		if err != nil {
+			if err.Error() == "novehicleconfig" {
+				b := []byte(strconv.Itoa(typeID) + "," + strconv.Itoa(valueID) + "," + strconv.Itoa(c.BaseID) + "," + strconv.Itoa(c.SubmodelID) + "\n")
+				n, err := MissingVehicleConfigs.WriteAt(b, VehicleConfigOffset)
+				if err != nil {
+					log.Print("HERE", err)
+					return err
+				}
+				VehicleConfigOffset += int64(n)
+			} else {
+				return err
+			}
+		} else {
+			log.Print(vehicleID, " has config ", vehicleConfigID, " already.")
+		}
+
 	}
 	return err
+}
+
+func createMissingConfigTypesFile() (*os.File, int64, error) {
+	//files - missing configTypes - there is no Curt ConfigAttributeType for this AAIAConfigType, but vehicles are differenetiated by it
+	missingConfigTypes, err := os.Create("MissingConfigTypes.csv")
+	if err != nil {
+		return missingConfigTypes, 0, err
+	}
+	// configTypesOffset := int64(0)
+	h := []byte("AAIAConfigTypeID\n")
+	n, err := missingConfigTypes.WriteAt(h, ConfigTypesOffset)
+	if err != nil {
+		return missingConfigTypes, ConfigTypesOffset, err
+	}
+	ConfigTypesOffset += int64(n)
+	return missingConfigTypes, ConfigTypesOffset, err
+}
+
+func createMissingConfigsFile() (*os.File, int64, error) {
+	//files - missing aces configs - there is a curt ConfigType, but no curt configValue corresponding to the AAIAConfig value
+	missingConfigs, err := os.Create("MissingConfigs.csv")
+	if err != nil {
+		return missingConfigs, 0, err
+	}
+	// configOffset := int64(0)
+	h := []byte("AAIAConfigID,AAIAConfigTypeID\n")
+	n, err := missingConfigs.WriteAt(h, ConfigOffset)
+	if err != nil {
+		return missingConfigs, ConfigOffset, err
+	}
+	ConfigOffset += int64(n)
+	return missingConfigs, ConfigOffset, err
+}
+func createMissingVehicleConfigurationsFile() (*os.File, int64, error) {
+	//files - configs needed in VehicleConfigAttribute (join table and vcdb_Vehicle table)
+	missingVehicleConfigs, err := os.Create("VehicleConfigurationsNeeded.csv")
+	if err != nil {
+		return missingVehicleConfigs, 0, err
+	}
+	// vehicleConfigOffset := int64(0)
+	h := []byte("TypeID,ConfigID,AAIABaseID,AAIASubmodelID\n")
+	n, err := missingVehicleConfigs.WriteAt(h, VehicleConfigOffset)
+	if err != nil {
+		return missingVehicleConfigs, VehicleConfigOffset, err
+	}
+	VehicleConfigOffset += int64(n)
+	return missingVehicleConfigs, VehicleConfigOffset, err
 }
 
 func checkConfigID(aaiaConfigId, aaiaConfigTypeId int, configMap map[string]string) (int, int, error) {
