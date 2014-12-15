@@ -28,6 +28,7 @@ func RunAfterCsvMongoed() error {
 		return err
 	}
 	log.Print("Total submodels to check: ", len(sbs))
+
 	subs := SmgArray(sbs)
 	subIds, err := AuditSubmodels(subs)
 	if err != nil {
@@ -35,7 +36,15 @@ func RunAfterCsvMongoed() error {
 	}
 	log.Print("Number of submodels to pass into configurations: ", len(subIds))
 
-	//TODO -filter on configs
+	configVehicles, err := MongoToConfig(subIds)
+
+	cons := CgArray(configVehicles)
+	// for _, c := range cons {
+	// 	log.Print(c)
+	// }
+	log.Print("Number of vehicles to audit the configurations of: ", len(cons))
+
+	err = AuditConfigs(cons)
 
 	return err
 }
