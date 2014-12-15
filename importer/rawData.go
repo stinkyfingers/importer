@@ -55,9 +55,7 @@ type CsvVehicle struct {
 
 func CaptureCsv(filename string, headerLines int) error {
 	var err error
-	// var cs []CsvVehicle
 
-	// url := os.Getenv("MONGOHQ_URL")
 	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
 	defer session.Close()
 
@@ -65,7 +63,7 @@ func CaptureCsv(filename string, headerLines int) error {
 	if err != nil {
 		return err
 	}
-	collection := session.DB("importer").C("raw")
+	collection := session.DB("importer").C("ariesTest")
 	err = collection.DropCollection()
 	if err != nil {
 		return err
@@ -170,13 +168,7 @@ func CaptureCsv(filename string, headerLines int) error {
 			DistributedPartOpportunity: DistributedPartOpportunity,
 			MaximumPartOpportunity:     MaximumPartOpportunity,
 		}
-
 		err = collection.Insert(&c)
-		// cs = append(cs, c)
-
 	}
-	//insert into mongoDB
-	// collection := session.DB("importer").C("raw")
-	// err = collection.Insert(&cs)
 	return err
 }
