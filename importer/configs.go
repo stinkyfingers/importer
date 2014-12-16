@@ -607,17 +607,16 @@ func CheckVehicleConfig(typeID, baseID, subID int) (int, int, error) {
 	var err error
 	var vehicleID, vehicleConfigID int
 	db, err := sql.Open("mysql", database.ConnectionString())
-	defer db.Close()
 	if err != nil {
 		return vehicleID, vehicleConfigID, err
 	}
+	defer db.Close()
 
 	stmt, err := db.Prepare(checkVehicleJoin)
-	defer stmt.Close()
 	if err != nil {
 		return 0, 0, err
 	}
-
+	defer stmt.Close()
 	err = stmt.QueryRow(baseID, subID, typeID).Scan(&vehicleID, &vehicleConfigID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -634,24 +633,19 @@ func GetConfigMap() (map[string]string, error) {
 	var err error
 	configMap := make(map[string]string)
 	db, err := sql.Open("mysql", database.ConnectionString())
-	defer db.Close()
 	if err != nil {
 		return configMap, err
 	}
+	defer db.Close()
 
 	stmt, err := db.Prepare(configMapStmt)
-	defer stmt.Close()
 	if err != nil {
 		return configMap, err
 	}
-
+	defer stmt.Close()
 	var typeID, acesTypeID, acesValID, valID *int
 	var k, v string
 	res, err := stmt.Query()
-	defer stmt.Close()
-	if err != nil {
-		return configMap, err
-	}
 	for res.Next() {
 		err = res.Scan(&typeID, &acesTypeID, &acesValID, &valID)
 		if err != nil {
