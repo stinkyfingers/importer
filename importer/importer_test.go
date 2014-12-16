@@ -21,23 +21,20 @@ func TestImporter(t *testing.T) {
 
 		// file := "/Users/macuser/Desktop/Polk/Trailer_Hitches_Coverage_US_201410.csv"
 
-		// err := Run(file, 1, dbCollection)
+		// err := ImportCsv(file, 1, dbCollection)
 		// So(err, ShouldBeNil)
 
 		// // Process data from Mongo
 
 		// err := setMaxConnections(800)
 		// So(err, ShouldBeNil)
-		// err = RunAfterCsvMongoed(dbCollection)
+		// err = RunDiff(dbCollection)
 		// So(err, ShouldBeNil)
 		// err = setMaxConnections(151)
 		// So(err, ShouldBeNil)
 
 		//make BaseVehicle tabele inserts from "baseVehiclessNeededInBaseVehiclesTable"
-		err := QueriesToInsertBaseVehiclesInBaseVehicleTable(dbCollection)
-		So(err, ShouldBeNil)
-
-		err = QueriesToInsertSubmodelsInSubmodelTable(dbCollection)
+		err := GetQueriesForNewBaseVehiclesAndSubmodels(dbCollection)
 		So(err, ShouldBeNil)
 
 	})

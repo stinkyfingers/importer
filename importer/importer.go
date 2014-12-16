@@ -8,7 +8,8 @@ import (
 	"strconv"
 )
 
-func Run(filename string, headerLines int, dbCollection string) error {
+//run once
+func ImportCsv(filename string, headerLines int, dbCollection string) error {
 	log.Print("Running")
 	var err error
 	err = CaptureCsv(filename, headerLines, dbCollection)
@@ -18,7 +19,8 @@ func Run(filename string, headerLines int, dbCollection string) error {
 	return err
 }
 
-func RunAfterCsvMongoed(dbCollection string) error {
+//run repeatedly - entering new vehicles and vehicleparts from the generated queries will reduce subsequent output from this function
+func RunDiff(dbCollection string) error {
 	bvs, err := MongoToBase(dbCollection)
 	if err != nil {
 		return err
@@ -53,10 +55,25 @@ func RunAfterCsvMongoed(dbCollection string) error {
 	if err != nil {
 		return err
 	}
-
 	return err
 }
 
+//you may run repeatedly, but will probably only need one pass. RunDiff() doesn't handle baseV's and subs missing from the Basevehicle and submodel tables well.
+//This function generates queries to insert them, or dump them in 'unknown' files.
+func GetQueriesForNewBaseVehiclesAndSubmodels(dbCollection string) error {
+	err := QueriesToInsertBaseVehiclesInBaseVehicleTable(dbCollection)
+	if err != nil {
+		return err
+	}
+
+	err = QueriesToInsertSubmodelsInSubmodelTable(dbCollection)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+//run this before RunDiff() if you're having trouble with max_connections (may want to run after to reset max_connections too).
 func setMaxConnections(num int) error {
 	var err error
 	db, err := sql.Open("mysql", database.ConnectionString())

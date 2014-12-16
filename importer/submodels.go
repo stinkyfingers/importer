@@ -104,6 +104,10 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 	if err != nil {
 		return subIds, err
 	}
+	existingBaseIdArray, err := GetArrayOfAAIABaseVehicleIDsForWhichThereExistsACurtBaseID()
+	if err != nil {
+		return subIds, err
+	}
 
 	subNeed, err := os.Create("exports/SubmodelsNeeded")
 	if err != nil {
@@ -129,6 +133,15 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 	}
 	subTableOffset := int64(0)
 
+	baseInBaseTableNeed, err := os.Create("exports/BaseVehiclesNeededInBaseVehicleTable.csv")
+	if err != nil {
+		return subIds, err
+	}
+	baseTableOffset := int64(0)
+	h = []byte("AAIABaseVehicleID,\n")
+	n, err = baseInBaseTableNeed.WriteAt(h, baseTableOffset)
+	baseTableOffset += int64(n)
+
 	for _, submodel := range submodels {
 		allSame := true
 		for i := 0; i < len(submodel.Vehicles); i++ {
@@ -143,9 +156,9 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 			//TODO verify that this works
 			for i, vehicle := range submodel.Vehicles {
 				for j, part := range vehicle.PartNumbers {
-					vehicleID, err := CheckSubmodelAndParts(submodel.SubID, submodel.BaseID, part, existingSubIdArray)
+					vehicleID, err := CheckSubmodelAndParts(submodel.SubID, submodel.BaseID, part, existingSubIdArray, existingBaseIdArray)
 					if err != nil && i == 0 && j == 0 { //avoid multiple entries
-						if err.Error() == "needbase" {
+						if err.Error() == "needsub" {
 							log.Print("need a submodel vehicle ", submodel.SubID)
 							sql := "((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(submodel.SubID) + ")),\n"
 							n, err := subNeed.WriteAt([]byte(sql), subOffset)
@@ -171,6 +184,14 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 							}
 							subTableOffset += int64(n)
 						}
+						if err.Error() == "needbasevehiclesinbasevehicletable" {
+							b := []byte(strconv.Itoa(submodel.BaseID) + "\n")
+							n, err := baseInBaseTableNeed.WriteAt(b, baseTableOffset)
+							if err != nil {
+								return subIds, err
+							}
+							baseTableOffset += int64(n)
+						}
 					}
 				}
 			}
@@ -184,7 +205,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 }
 
 //returns Curt vcdb_VehicleID and err
-func CheckSubmodelAndParts(aaiaSubmodelId, aaiaBaseVehicleId int, partNumber string, existingSubmodelIdArray []int) (int, error) {
+func CheckSubmodelAndParts(aaiaSubmodelId, aaiaBaseVehicleId int, partNumber string, existingSubmodelIdArray, existingBaseIdArray []int) (int, error) {
 	db, err := sql.Open("mysql", database.ConnectionString())
 	if err != nil {
 		return 0, err
@@ -201,13 +222,19 @@ func CheckSubmodelAndParts(aaiaSubmodelId, aaiaBaseVehicleId int, partNumber str
 	err = stmt.QueryRow(aaiaBaseVehicleId, aaiaSubmodelId).Scan(&vehicleID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			for _, x := range existingSubmodelIdArray {
-				if x == aaiaSubmodelId {
-					err = errors.New("needbase")
+			for _, y := range existingBaseIdArray {
+				if y == aaiaBaseVehicleId {
+					for _, x := range existingSubmodelIdArray {
+						if x == aaiaSubmodelId {
+							err = errors.New("needsub")
+							return 0, err
+						}
+					}
+					err = errors.New("needsubmodelinsubmodeltable")
 					return 0, err
 				}
 			}
-			err = errors.New("needsubmodelinsubmodeltable")
+			err = errors.New("needbasevehiclesinbasevehicletable")
 			return 0, err
 		}
 		return 0, err
