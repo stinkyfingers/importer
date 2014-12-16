@@ -26,7 +26,11 @@ func TestImporter(t *testing.T) {
 
 		// // Process data from Mongo
 
-		err := RunAfterCsvMongoed(dbCollection)
+		err := setMaxConnections(800)
+		So(err, ShouldBeNil)
+		err = RunAfterCsvMongoed(dbCollection)
+		So(err, ShouldBeNil)
+		err = setMaxConnections(151)
 		So(err, ShouldBeNil)
 
 	})

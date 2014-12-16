@@ -1,7 +1,11 @@
 package importer
 
 import (
+	"database/sql"
+	"github.com/curt-labs/polkImporter/helpers/database"
+	_ "github.com/go-sql-driver/mysql"
 	"log"
+	"strconv"
 )
 
 func Run(filename string, headerLines int, dbCollection string) error {
@@ -50,5 +54,25 @@ func RunAfterCsvMongoed(dbCollection string) error {
 		return err
 	}
 
+	return err
+}
+
+func setMaxConnections(num int) error {
+	var err error
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare("set global max_connections = " + strconv.Itoa(num))
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec()
+	if err != nil {
+		return err
+	}
 	return err
 }

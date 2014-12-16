@@ -62,6 +62,10 @@ var (
 		where b.AAIABaseVehicleID = ?
 		and s.AAIASubmodelID = ?
 		and vca.AttributeID = ?`
+	vehicleJoinMapStmt = `select v.ID, vca.VehicleConfigID, b.AAIABaseVehicleID, s.AAIASubmodelID, vca.AttributeID from vcdb_Vehicle as v 
+		join BaseVehicle as b on b.ID = v.BaseVehicleID
+		join Submodel as s on s.ID = v.SubmodelID
+		join VehicleConfigAttribute as vca on vca.VehicleConfigID = v.ConfigID`
 )
 
 var (
@@ -108,6 +112,10 @@ func CgArray(cgs []ConfigVehicleRaw) []ConfigVehicleGroup {
 
 func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	configMap, err := GetConfigMap()
+	if err != nil {
+		return err
+	}
+	vehicleJoinMap, err := CreateVehicleJoinMap()
 	if err != nil {
 		return err
 	}
@@ -218,7 +226,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 6
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.FuelTypeID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -232,7 +240,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 20
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.FuelDeliveryID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -245,7 +253,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 8
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.AspirationID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -258,7 +266,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 8
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.DriveTypeID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -271,7 +279,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 2
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.BodyTypeID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -284,7 +292,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 4
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.BodyNumDoorsID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -297,7 +305,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 16
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.PowerOutputID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -310,7 +318,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 25
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.PowerOutputID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -323,7 +331,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 19
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.FuelDelConfigID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -336,7 +344,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 40
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.ValvesID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -349,7 +357,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 12
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.CylHeadTypeID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -362,7 +370,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 7
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.EngineBaseID)
-				err = auditConfigs(acesType, acesValue, configMap, c, MissingVehicleConfigs, MissingConfigs)
+				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
 					return err
@@ -492,7 +500,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	return err
 }
 
-func auditConfigs(acesType int, acesValue int, configMap map[string]string, c ConfigVehicleRaw, MissingVehicleConfigs *os.File, MissingConfigs *os.File) error {
+func auditConfigs(acesType int, acesValue int, configMap map[string]string, vehicleJoinMap map[string]string, c ConfigVehicleRaw, MissingVehicleConfigs *os.File, MissingConfigs *os.File) error {
 	var err error
 
 	//search for this configAttribute and configAttributeType. If there are no Curt versions, write the needed aaia configAttibute type and configAttribute to csv
@@ -515,7 +523,8 @@ func auditConfigs(acesType int, acesValue int, configMap map[string]string, c Co
 	} else {
 		//curt configAttribute and configAttributeType found - check for vehicle and join in vehicleConfigAttribute tables
 		//if there are no vehicle/vehicleConfigAttribute join, write this miss to csv
-		vehicleID, vehicleConfigID, err := CheckVehicleConfig(typeID, c.BaseID, c.SubmodelID)
+		// vehicleID, vehicleConfigID, err := CheckVehicleConfig(typeID, c.BaseID, c.SubmodelID)
+		vehicleID, vehicleConfigID, err := CheckVehicleConfigMap(typeID, c.BaseID, c.SubmodelID, vehicleJoinMap)
 		if err != nil {
 			if err.Error() == "novehicleconfig" {
 				b := []byte(strconv.Itoa(typeID) + "," + strconv.Itoa(valueID) + "," + strconv.Itoa(c.BaseID) + "," + strconv.Itoa(c.SubmodelID) + "\n")
@@ -603,28 +612,58 @@ func checkConfigID(aaiaConfigId, aaiaConfigTypeId int, configMap map[string]stri
 	return typeID, valID, err
 }
 
-func CheckVehicleConfig(typeID, baseID, subID int) (int, int, error) {
-	var err error
-	var vehicleID, vehicleConfigID int
-	db, err := sql.Open("mysql", database.ConnectionString())
-	if err != nil {
-		return vehicleID, vehicleConfigID, err
-	}
-	defer db.Close()
+// func CheckVehicleConfig(typeID, baseID, subID int) (int, int, error) {
+// 	var err error
+// 	var vehicleID, vehicleConfigID int
+// 	db, err := sql.Open("mysql", database.ConnectionString())
+// 	if err != nil {
+// 		log.Print("615", err)
+// 		return vehicleID, vehicleConfigID, err
+// 	}
+// 	defer db.Close()
 
-	stmt, err := db.Prepare(checkVehicleJoin)
+// 	stmt, err := db.Prepare(checkVehicleJoin)
+// 	if err != nil {
+// 		log.Print("622", err)
+// 		return 0, 0, err
+// 	}
+// 	defer stmt.Close()
+// 	err = stmt.QueryRow(baseID, subID, typeID).Scan(&vehicleID, &vehicleConfigID)
+// 	if err != nil {
+// 		if err == sql.ErrNoRows {
+// 			return 0, 0, errors.New("novehicleconfig")
+// 		}
+// 		log.Print("632", err)
+// 		return 0, 0, err
+// 	}
+// 	return vehicleID, vehicleConfigID, err
+// }
+
+func CheckVehicleConfigMap(typeID, baseID, subID int, vehicleJoinMap map[string]string) (int, int, error) {
+	var err error
+	var vId, vConId int
+	var baseSubAttr, vehicleVehConfig string
+
+	strArray := []string{strconv.Itoa(baseID), strconv.Itoa(subID), strconv.Itoa(typeID)}
+
+	baseSubAttr = strings.Join(strArray, ",")
+
+	vehicleVehConfig = vehicleJoinMap[baseSubAttr]
+	if vehicleVehConfig == "" {
+		err = errors.New("novehicleconfig")
+		return 0, 0, err
+	}
+	// var vArray []string
+	vArray := strings.Split(vehicleVehConfig, ",")
+	vId, err = strconv.Atoi(vArray[0])
 	if err != nil {
 		return 0, 0, err
 	}
-	defer stmt.Close()
-	err = stmt.QueryRow(baseID, subID, typeID).Scan(&vehicleID, &vehicleConfigID)
+	vConId, err = strconv.Atoi(vArray[1])
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, 0, errors.New("novehicleconfig")
-		}
 		return 0, 0, err
 	}
-	return vehicleID, vehicleConfigID, err
+	return vId, vConId, nil
 }
 
 //maps acesTypeID,acesValID:typeID, valID
@@ -659,4 +698,41 @@ func GetConfigMap() (map[string]string, error) {
 
 	}
 	return configMap, err
+}
+
+func CreateVehicleJoinMap() (map[string]string, error) {
+	joinMap := make(map[string]string)
+
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return joinMap, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(vehicleJoinMapStmt)
+	if err != nil {
+		return joinMap, err
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Query()
+	if err != nil {
+		return joinMap, err
+	}
+	var vId, vConId, aaiaBaseId, aaiaSubId, attrId int
+	var baseSubAttr, vehicleVehConfig string
+	for res.Next() {
+		err = res.Scan(&vId, &vConId, &aaiaBaseId, &aaiaSubId, &attrId)
+		if err != nil {
+			return joinMap, err
+		}
+		strArray := []string{strconv.Itoa(aaiaBaseId), strconv.Itoa(aaiaSubId), strconv.Itoa(attrId)}
+		baseSubAttr = strings.Join(strArray, ",")
+
+		vArray := []string{strconv.Itoa(vId), strconv.Itoa(vConId)}
+		vehicleVehConfig = strings.Join(vArray, ",")
+
+		joinMap[baseSubAttr] = vehicleVehConfig
+	}
+	return joinMap, err
 }
