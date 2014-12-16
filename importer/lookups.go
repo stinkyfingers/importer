@@ -37,7 +37,7 @@ func QueriesToInsertSubmodelsInSubmodelTable(dbCollection string) error {
 	off += int64(n)
 
 	//csv
-	csvfile, err := os.Open("exports/SubmodelsNeededInSubmodelTable.csv")
+	csvfile, err := os.Create("exports/SubmodelsNeededInSubmodelTable.csv")
 	if err != nil {
 		return err
 	}

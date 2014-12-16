@@ -26,19 +26,19 @@ func TestImporter(t *testing.T) {
 
 		// // Process data from Mongo
 
-		err := setMaxConnections(800)
-		So(err, ShouldBeNil)
-		err = RunAfterCsvMongoed(dbCollection)
-		So(err, ShouldBeNil)
-		err = setMaxConnections(151)
-		So(err, ShouldBeNil)
+		// err := setMaxConnections(800)
+		// So(err, ShouldBeNil)
+		// err = RunAfterCsvMongoed(dbCollection)
+		// So(err, ShouldBeNil)
+		// err = setMaxConnections(151)
+		// So(err, ShouldBeNil)
 
 		//make BaseVehicle tabele inserts from "baseVehiclessNeededInBaseVehiclesTable"
-		// err := QueriesToInsertBaseVehiclesInBaseVehicleTable(dbCollection)
-		// So(err, ShouldBeNil)
+		err := QueriesToInsertBaseVehiclesInBaseVehicleTable(dbCollection)
+		So(err, ShouldBeNil)
 
-		// err = QueriesToInsertSubmodelsInSubmodelTable(dbCollection)
-		// So(err, ShouldBeNil)
+		err = QueriesToInsertSubmodelsInSubmodelTable(dbCollection)
+		So(err, ShouldBeNil)
 
 	})
 
