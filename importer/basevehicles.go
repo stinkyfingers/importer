@@ -34,12 +34,14 @@ var (
 	getVehicleIdFromAAIABase = `select v.ID from BaseVehicle as b 
 		join vcdb_Vehicle as v on v.BaseVehicleID = b.ID
 		where b.AAIABaseVehicleID = ?
-		and v.SubmodelID = 0
-		and v.ConfigID = 0`
+		and (v.SubmodelID = 0 or v.SubmodelID is null)
+		and (v.ConfigID = 0 or v.SubmodelID is null)`
 	getVehiclePart = `select vp.ID from vcdb_VehiclePart as vp 
 		join Part as p on p.partID = vp.PartNumber
 		where p.oldPartNumber = ?
 		and vp.VehicleID = ?`
+	arrayOfAAIABaseIDs    = `select AAIABaseVehicleID from BaseVehicle`
+	arrayOfOldPartNumbers = `select oldPartNumber from Part where oldPartNumber is not null`
 )
 
 //For all mongodb entries, returns BaseVehicleRaws
@@ -58,6 +60,7 @@ func MongoToBase(dbCollection string) ([]BaseVehicleRaw, error) {
 
 func BvgArray(bvs []BaseVehicleRaw) []BaseVehicleGroup {
 	var bases []BaseVehicleGroup
+
 	for _, row := range bvs {
 		addB := true
 		for i, base := range bases {
@@ -104,18 +107,51 @@ func BvgArray(bvs []BaseVehicleRaw) []BaseVehicleGroup {
 
 func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 	var baseIds []int
+	existingBaseIdArray, err := GetArrayOfAAIABaseVehicleIDsForWhichThereExistsACurtBaseID()
+	if err != nil {
+		return baseIds, err
+	}
 
-	baseNeed, err := os.Create("BaseVehiclesNeeded")
+	existingOldPartNumbersArray, err := GetArrayOfOldPartNumbersForWhichThereExistsACurtPartID()
+	if err != nil {
+		return baseIds, err
+	}
+
+	baseNeed, err := os.Create("exports/BaseVehiclesNeeded.txt")
 	if err != nil {
 		return baseIds, err
 	}
 	baseOffset := int64(0)
+	h := []byte("insert into vcdb_Vehicle (BaseVehicleID) values \n")
+	n, err := baseNeed.WriteAt(h, baseOffset)
+	baseOffset += int64(n)
 
-	partNeed, err := os.Create("BaseVehicle_PartsNeeded")
+	partNeed, err := os.Create("exports/BaseVehicle_PartsNeeded.txt")
 	if err != nil {
 		return baseIds, err
 	}
 	partOffset := int64(0)
+	h = []byte("insert into vcdb_VehiclePart(VehicleID, PartNumber) values \n")
+	n, err = partNeed.WriteAt(h, partOffset)
+	partOffset += int64(n)
+
+	baseInBaseTableNeed, err := os.Create("exports/BaseVehiclesNeededInBaseVehicleTable.csv")
+	if err != nil {
+		return baseIds, err
+	}
+	baseTableOffset := int64(0)
+	h = []byte("AAIABaseVehicleID,\n")
+	n, err = baseInBaseTableNeed.WriteAt(h, baseTableOffset)
+	baseTableOffset += int64(n)
+
+	partInPartTableNeed, err := os.Create("exports/PartsNeededInPartTable.csv")
+	if err != nil {
+		return baseIds, err
+	}
+	partTableOffset := int64(0)
+	h = []byte("AAIABaseVehicleID,\n")
+	n, err = partInPartTableNeed.WriteAt(h, partTableOffset)
+	partTableOffset += int64(n)
 
 	for _, base := range bases {
 		allSame := true
@@ -131,11 +167,11 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 			//TODO verify that this works
 			for i, vehicle := range base.Vehicles {
 				for j, part := range vehicle.PartNumbers {
-					vehicleID, err := CheckBaseVehicleAndParts(base.BaseID, part)
+					vehicleID, err := CheckBaseVehicleAndParts(base.BaseID, part, existingBaseIdArray, existingOldPartNumbersArray)
 					if err != nil && i == 0 && j == 0 { //avoid multiple entries
 						if err.Error() == "needbase" {
 							log.Print("need a base vehicle ", base.BaseID)
-							sql := "insert into vcdb_Vehicle (BaseVehicleID) values (select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + ")\n"
+							sql := " ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + ")),\n"
 							n, err := baseNeed.WriteAt([]byte(sql), baseOffset)
 							if err != nil {
 								return baseIds, err
@@ -144,12 +180,28 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 						}
 						if err.Error() == "needpart" {
 							log.Print("Need a part ", part, " for vehicleID ", vehicleID)
-							sql := "insert into vcdb_VehiclePart(VehicleID, PartNumber) values(" + strconv.Itoa(vehicleID) + ", (select partID from Part where oldPartNumber = " + part + "))\n"
+							sql := "(" + strconv.Itoa(vehicleID) + ", (select partID from Part where oldPartNumber = '" + part + "')),\n"
 							n, err := partNeed.WriteAt([]byte(sql), partOffset)
 							if err != nil {
 								return baseIds, err
 							}
 							partOffset += int64(n)
+						}
+						if err.Error() == "nobasevehicleinbasetable" {
+							b := []byte(strconv.Itoa(base.BaseID) + "\n")
+							n, err := baseInBaseTableNeed.WriteAt(b, baseTableOffset)
+							if err != nil {
+								return baseIds, err
+							}
+							baseTableOffset += int64(n)
+						}
+						if err.Error() == "nooldpartinparttable" {
+							b := []byte(part + "\n")
+							n, err := partInPartTableNeed.WriteAt(b, partTableOffset)
+							if err != nil {
+								return baseIds, err
+							}
+							partTableOffset += int64(n)
 						}
 					}
 				}
@@ -164,7 +216,7 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 }
 
 //returns Curt vcdb_VehicleID and err
-func CheckBaseVehicleAndParts(aaiaBaseId int, partNumber string) (int, error) {
+func CheckBaseVehicleAndParts(aaiaBaseId int, partNumber string, existingBaseIdArray []int, existingOldPartNumbersArray []string) (int, error) {
 	db, err := sql.Open("mysql", database.ConnectionString())
 	if err != nil {
 		return 0, err
@@ -181,7 +233,14 @@ func CheckBaseVehicleAndParts(aaiaBaseId int, partNumber string) (int, error) {
 	err = stmt.QueryRow(aaiaBaseId).Scan(&vehicleID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			err = errors.New("needbase")
+			for _, x := range existingBaseIdArray {
+				if x == aaiaBaseId {
+					err = errors.New("needbase")
+					return 0, err
+				}
+			}
+			//there is literally no curt Basevehicle for this AAIABaseVehicleID - needs insert in basevehicle table
+			err = errors.New("nobasevehicleinbasetable")
 			return 0, err
 		}
 		return 0, err
@@ -193,10 +252,75 @@ func CheckBaseVehicleAndParts(aaiaBaseId int, partNumber string) (int, error) {
 	err = stmt.QueryRow(partNumber, &vehicleID).Scan(&partID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			err = errors.New("needpart")
-			return vehicleID, err
+			for _, y := range existingOldPartNumbersArray {
+				if y == partNumber {
+					err = errors.New("needpart")
+					return vehicleID, err
+				}
+			}
+			err = errors.New("nooldpartinparttable")
+			return 0, err
 		}
 		return vehicleID, err
 	}
+	defer stmt.Close()
 	return vehicleID, err
+}
+
+func GetArrayOfAAIABaseVehicleIDsForWhichThereExistsACurtBaseID() ([]int, error) {
+	var err error
+	var id int
+	var arrayIDs []int
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return arrayIDs, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(arrayOfAAIABaseIDs)
+	if err != nil {
+		return arrayIDs, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Query()
+	if err != nil {
+		return arrayIDs, err
+	}
+	for res.Next() {
+		err = res.Scan(&id)
+		if err != nil {
+			return arrayIDs, err
+		}
+		arrayIDs = append(arrayIDs, id)
+	}
+	return arrayIDs, err
+}
+
+func GetArrayOfOldPartNumbersForWhichThereExistsACurtPartID() ([]string, error) {
+	var err error
+	var id string
+	var arrayIDs []string
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return arrayIDs, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(arrayOfOldPartNumbers)
+	if err != nil {
+		return arrayIDs, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Query()
+	if err != nil {
+		return arrayIDs, err
+	}
+	for res.Next() {
+		err = res.Scan(&id)
+		if err != nil {
+			return arrayIDs, err
+		}
+		arrayIDs = append(arrayIDs, id)
+	}
+	return arrayIDs, err
 }

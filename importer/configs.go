@@ -547,7 +547,7 @@ func auditConfigs(acesType int, acesValue int, configMap map[string]string, vehi
 
 func createMissingConfigTypesFile() (*os.File, int64, error) {
 	//files - missing configTypes - there is no Curt ConfigAttributeType for this AAIAConfigType, but vehicles are differenetiated by it
-	missingConfigTypes, err := os.Create("MissingConfigTypes.csv")
+	missingConfigTypes, err := os.Create("exports/MissingConfigTypes.csv")
 	if err != nil {
 		return missingConfigTypes, 0, err
 	}
@@ -563,7 +563,7 @@ func createMissingConfigTypesFile() (*os.File, int64, error) {
 
 func createMissingConfigsFile() (*os.File, int64, error) {
 	//files - missing aces configs - there is a curt ConfigType, but no curt configValue corresponding to the AAIAConfig value
-	missingConfigs, err := os.Create("MissingConfigs.csv")
+	missingConfigs, err := os.Create("exports/MissingConfigs.csv")
 	if err != nil {
 		return missingConfigs, 0, err
 	}
@@ -578,7 +578,7 @@ func createMissingConfigsFile() (*os.File, int64, error) {
 }
 func createMissingVehicleConfigurationsFile() (*os.File, int64, error) {
 	//files - configs needed in VehicleConfigAttribute (join table and vcdb_Vehicle table)
-	missingVehicleConfigs, err := os.Create("VehicleConfigurationsNeeded.csv")
+	missingVehicleConfigs, err := os.Create("exports/VehicleConfigurationsNeeded.csv")
 	if err != nil {
 		return missingVehicleConfigs, 0, err
 	}

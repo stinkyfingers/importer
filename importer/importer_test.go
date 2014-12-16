@@ -33,6 +33,13 @@ func TestImporter(t *testing.T) {
 		err = setMaxConnections(151)
 		So(err, ShouldBeNil)
 
+		//make BaseVehicle tabele inserts from "baseVehiclessNeededInBaseVehiclesTable"
+		// err := QueriesToInsertBaseVehiclesInBaseVehicleTable(dbCollection)
+		// So(err, ShouldBeNil)
+
+		// err = QueriesToInsertSubmodelsInSubmodelTable(dbCollection)
+		// So(err, ShouldBeNil)
+
 	})
 
 }

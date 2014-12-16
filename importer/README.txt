@@ -6,6 +6,15 @@ SQL for vehicles from the csv in which all basevehicles have the same array of p
 **BaseVehicle_PartsNeeded
 SQL for inserting vcdb_VehicleParts. These vehicles are baseVehicles. Uses "old" Aries part numbers.
 
+**BaseVehiclesNeededInBaseVehicleTable
+Lists AAIABaseVehicleIDs for which there is no Curt BaseVehicleID - see BaseVehicleInserts...
+
+**BaseVehicleInserts
+Insert Statements (BaseVehicle table) for previsously non-existant BaseVehicles
+
+**UnknownBaseVehicle
+These are tricky - we are missing the aaia model or aaia make in the vcbd_Make or vcdb_Model tables. May be best to create these vehicles by hand.
+
 
 **SubmodelNeeded
 SQL for vehicles from the csv in which all submodels have the same array of parts and need a curt-centric VehicleID with config ID of 0.
