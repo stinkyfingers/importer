@@ -13,7 +13,7 @@ Lists AAIABaseVehicleIDs for which there is no Curt BaseVehicleID - see BaseVehi
 Insert Statements (BaseVehicle table) for previsously non-existant BaseVehicles
 
 **UnknownBaseVehicle
-These are tricky - we are missing the aaia model or aaia make in the vcbd_Make or vcdb_Model tables. May be best to create these vehicles by hand.
+These are tricky - we are missing the aaia model and/or aaia make in the vcbd_Make or vcdb_Model tables. May be best to create these vehicles by hand.
 
 
 **SubmodelNeeded
@@ -36,6 +36,8 @@ RUN
 It's easy to run from the Test. 
 Note: this is set up to use "old part numbers" from aries (as strings). The application wants the Aries parts to be already in the Parts table prior to running. It works without, but won't find any part matches.
 
-Run(file, 1, dbName); file="nameofcsv.csv", headerlines=int(number of lines to skip), dbName="what you'd like to name the mongoDb collection".
+ImportCsv(file, 1, dbName); file="nameofcsv.csv", headerlines=int(number of lines to skip), dbName="what you'd like to name the mongoDb collection".
 
-RunAfterMongo(db string); takes the name of the mongoDb collection you're using; the db itself is "importer". This function runs the diff and outputs files with SQL and CSV records (above).
+RunDiff(db string); takes the name of the mongoDb collection you're using; the db itself is "importer". This function runs the diff and outputs files with SQL and CSV records (above).
+
+GetQueriesForNewBaseVehiclesAndSubmodels(dbCollection); generates insert statements for basevehicles and submodels that are totally missing from the basevehicle and submodel tables. 
