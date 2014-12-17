@@ -128,6 +128,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	}
 
 	for _, configVehicleGroup := range configVehicleGroups {
+		log.Print("__", configVehicleGroup)
 		fuelType := false
 		fuelDeliveryID := false
 		acesLiter := false
@@ -253,6 +254,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 			acesType := 8
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.AspirationID)
+				log.Print("ASP", acesValue)
 				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
 				if err != nil {
 					log.Print(err)
@@ -263,7 +265,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		//drive type
 		if driveTypeID == true {
 			log.Print("driveTypeID")
-			acesType := 8
+			acesType := 3
 			for _, c := range configVehicleGroup.ConfigVehicles {
 				acesValue := int(c.DriveTypeID)
 				err = auditConfigs(acesType, acesValue, configMap, vehicleJoinMap, c, MissingVehicleConfigs, MissingConfigs)
@@ -507,7 +509,7 @@ func auditConfigs(acesType int, acesValue int, configMap map[string]string, vehi
 	typeID, valueID, err := checkConfigID(acesValue, acesType, configMap)
 	if err != nil {
 		if err.Error() == "noconfigs" {
-			b := []byte(strconv.Itoa(acesValue) + "," + strconv.Itoa(acesType) + "\n")
+			b := []byte(strconv.Itoa(acesValue) + "," + strconv.Itoa(acesType) + "," + strconv.Itoa(c.VehicleID) + "," + strconv.Itoa(c.BaseID) + "," + strconv.Itoa(c.SubmodelID) + "\n")
 			n, err := MissingConfigs.WriteAt(b, ConfigOffset)
 			if err != nil {
 				log.Print("configAudit err; writing MissingConfigs ", err)
@@ -529,6 +531,7 @@ func auditConfigs(acesType int, acesValue int, configMap map[string]string, vehi
 			if err.Error() == "novehicleconfig" {
 				b := []byte(strconv.Itoa(typeID) + "," + strconv.Itoa(valueID) + "," + strconv.Itoa(c.BaseID) + "," + strconv.Itoa(c.SubmodelID) + "\n")
 				n, err := MissingVehicleConfigs.WriteAt(b, VehicleConfigOffset)
+
 				if err != nil {
 					log.Print("configAudit error; writing MissingVehicleConfigs ", err)
 					return err
@@ -568,7 +571,7 @@ func createMissingConfigsFile() (*os.File, int64, error) {
 		return missingConfigs, 0, err
 	}
 	// configOffset := int64(0)
-	h := []byte("AAIAConfigID,AAIAConfigTypeID\n")
+	h := []byte("AAIAConfigID,AAIAConfigTypeID,AAIAVehicleID,AAIABaseVehicleID,AAIASubmodelID\n")
 	n, err := missingConfigs.WriteAt(h, ConfigOffset)
 	if err != nil {
 		return missingConfigs, ConfigOffset, err
@@ -611,33 +614,6 @@ func checkConfigID(aaiaConfigId, aaiaConfigTypeId int, configMap map[string]stri
 	}
 	return typeID, valID, err
 }
-
-// func CheckVehicleConfig(typeID, baseID, subID int) (int, int, error) {
-// 	var err error
-// 	var vehicleID, vehicleConfigID int
-// 	db, err := sql.Open("mysql", database.ConnectionString())
-// 	if err != nil {
-// 		log.Print("615", err)
-// 		return vehicleID, vehicleConfigID, err
-// 	}
-// 	defer db.Close()
-
-// 	stmt, err := db.Prepare(checkVehicleJoin)
-// 	if err != nil {
-// 		log.Print("622", err)
-// 		return 0, 0, err
-// 	}
-// 	defer stmt.Close()
-// 	err = stmt.QueryRow(baseID, subID, typeID).Scan(&vehicleID, &vehicleConfigID)
-// 	if err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return 0, 0, errors.New("novehicleconfig")
-// 		}
-// 		log.Print("632", err)
-// 		return 0, 0, err
-// 	}
-// 	return vehicleID, vehicleConfigID, err
-// }
 
 func CheckVehicleConfigMap(typeID, baseID, subID int, vehicleJoinMap map[string]string) (int, int, error) {
 	var err error

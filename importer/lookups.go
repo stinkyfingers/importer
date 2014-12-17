@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -166,6 +167,10 @@ func QueriesToInsertBaseVehiclesInBaseVehicleTable(dbCollection string) error {
 }
 
 func GetQueriesToInsertMissingConfigs(dbCollection string) error {
+	configTypeMap, err := GetConfigTypeMap()
+	if err != nil {
+		return err
+	}
 	//mongo
 	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
 	if err != nil {
@@ -173,6 +178,19 @@ func GetQueriesToInsertMissingConfigs(dbCollection string) error {
 	}
 	defer session.Close()
 	// collection := session.DB("importer").C(dbCollection)
+
+	//file writes
+	queriesForMissingConfigs, err := os.Create("exports/QueriesForMissingConfigs.txt")
+	if err != nil {
+		return err
+	}
+	missingConfigsOffset := int64(0)
+	insertHeader := []byte("insert into ConfigAttribute (ConfigAttributeTypeID, parentID, vcdbID, value) values \n")
+	n, err := queriesForMissingConfigs.WriteAt(insertHeader, missingConfigsOffset)
+	if err != nil {
+		return err
+	}
+	missingConfigsOffset += int64(n)
 
 	//csv
 	csvfile, err := os.Open("exports/MissingConfigs.csv")
@@ -201,168 +219,177 @@ func GetQueriesToInsertMissingConfigs(dbCollection string) error {
 		if err != nil {
 			return err
 		}
+		if aaiaConfigID > 0 {
 
-		var table, idField, valueField string
-		switch {
-		case aaiaConfigTypeID == 1:
-			table = "WheelBase"
-			idField = table + "ID"
-			valueField = table
-		case aaiaConfigTypeID == 2:
-			table = "BodyType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 3:
-			table = "DriveType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 4:
-			table = "BodyNumDoors"
-			idField = table + "ID"
-			valueField = table
-		case aaiaConfigTypeID == 5:
-			table = "BedLength"
-			idField = table + "ID"
-			valueField = table + ""
-		case aaiaConfigTypeID == 6:
-			table = "FuelType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 7:
-			table = "EngineBase"
-			idField = table + "ID"
-			valueField = "Liter"
-		case aaiaConfigTypeID == 8:
-			table = "Aspiration"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 9:
-			table = "BedType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 10:
-			table = "BrakeABS"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 11:
-			table = "BrakeSystem"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 12:
-			table = "CylinderHeadType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 13:
-			table = "EngineDesignation"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 14:
-			table = "Mfr"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 15:
-			table = "EngineVersion"
-			idField = table + "ID"
-			valueField = table + ""
-		case aaiaConfigTypeID == 16:
-			table = "EngineVin"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 17:
-			table = "BrakeType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 18:
-			table = "SpringType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 19:
-			table = "FuelDeliverySubType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 20:
-			table = "FuelDeliveryType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 21:
-			table = "FuelSystemControlType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 22:
-			table = "FuelSystemDesign"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 23:
-			table = "IgnitionSystemType"
-		case aaiaConfigTypeID == 24:
-			table = "MfrBodyCode"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 25:
-			table = "PowerOutput"
-			idField = table + "ID"
-			valueField = "HorsePower"
-		case aaiaConfigTypeID == 26:
-			table = "BrakeType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 27:
-			table = "SpringType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 29:
-			table = "SteeringSystem"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 30:
-			table = "SteeringType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 31:
-			table = "Transmission"
-			idField = table + "ID"
-			valueField = table + "ElecControlledID"
-		// case aaiaConfigTypeID == 34:
-		// 	table = "Transmission"
-		// 	idField = table + "ID"
-		// 	valueField = table + "Name"
-		// case aaiaConfigTypeID == 35:
-		// 	table = "TransmissionBase"
-		// 	idField = table + "ID"
-		// 	valueField = table + "Name"
-		case aaiaConfigTypeID == 36:
-			table = "TransmissionControlType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 37:
-			table = "TransmissionManufacturerCode"
-			idField = table + "ID"
-			valueField = table + ""
-		case aaiaConfigTypeID == 38:
-			table = "TransmissionNumSpeeds"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 38:
-			table = "TransmissionNumSpeeds"
-			idField = table + "ID"
-			valueField = table + ""
-		case aaiaConfigTypeID == 38:
-			table = "TransmissionType"
-			idField = table + "ID"
-			valueField = table + "Name"
-		case aaiaConfigTypeID == 38:
-			table = "Valves"
-			idField = table + "ID"
-			valueField = table + "Name"
+			var table, idField, valueField string
+			switch {
+			case aaiaConfigTypeID == 1:
+				table = "WheelBase"
+				idField = table + "ID"
+				valueField = table
+			case aaiaConfigTypeID == 2:
+				table = "BodyType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 3:
+				table = "DriveType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 4:
+				table = "BodyNumDoors"
+				idField = table + "ID"
+				valueField = table
+			case aaiaConfigTypeID == 5:
+				table = "BedLength"
+				idField = table + "ID"
+				valueField = table + ""
+			case aaiaConfigTypeID == 6:
+				table = "FuelType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 7:
+				table = "EngineBase"
+				idField = table + "ID"
+				valueField = "Liter"
+			case aaiaConfigTypeID == 8:
+				table = "Aspiration"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 9:
+				table = "BedType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 10:
+				table = "BrakeABS"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 11:
+				table = "BrakeSystem"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 12:
+				table = "CylinderHeadType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 13:
+				table = "EngineDesignation"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 14:
+				table = "Mfr"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 15:
+				table = "EngineVersion"
+				idField = table + "ID"
+				valueField = table + ""
+			case aaiaConfigTypeID == 16:
+				table = "EngineVin"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 17:
+				table = "BrakeType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 18:
+				table = "SpringType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 19:
+				table = "FuelDeliverySubType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 20:
+				table = "FuelDeliveryType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 21:
+				table = "FuelSystemControlType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 22:
+				table = "FuelSystemDesign"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 23:
+				table = "IgnitionSystemType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 24:
+				table = "MfrBodyCode"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 25:
+				table = "PowerOutput"
+				idField = table + "ID"
+				valueField = "HorsePower"
+			case aaiaConfigTypeID == 26:
+				table = "BrakeType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 27:
+				table = "SpringType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 29:
+				table = "SteeringSystem"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 30:
+				table = "SteeringType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 31:
+				table = "Transmission"
+				idField = table + "ID"
+				valueField = table + "ElecControlledID"
+			// case aaiaConfigTypeID == 34:
+			// 	table = "Transmission"
+			// 	idField = table + "ID"
+			// 	valueField = table + "Name"
+			// case aaiaConfigTypeID == 35:
+			// 	table = "TransmissionBase"
+			// 	idField = table + "ID"
+			// 	valueField = table + "Name"
+			case aaiaConfigTypeID == 36:
+				table = "TransmissionControlType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 37:
+				table = "TransmissionManufacturerCode"
+				idField = table + "ID"
+				valueField = table + ""
+			case aaiaConfigTypeID == 38:
+				table = "TransmissionNumSpeeds"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 39:
+				table = "TransmissionType"
+				idField = table + "ID"
+				valueField = table + "Name"
+			case aaiaConfigTypeID == 40:
+				table = "Valves"
+				idField = table + "ID"
+				valueField = table + "PerEngine"
+			default:
+				continue
 
-		}
-		valueName, err := GetAcesConfigValueName(idField, valueField, table, aaiaConfigID)
-		if err != nil {
-			return err
-		}
-		log.Print(valueName)
-		// err = collection.Find(bson.M{"baseVehicleId": BaseVehicleID}).One(&configValue)
-		//TODO finish generating inserts
+			}
+			valueName, err := GetAcesConfigValueName(idField, valueField, table, aaiaConfigID)
+			if err != nil {
+				return err
+			}
+			log.Print("VALUE ", valueName)
+			curtConfigTypeId := configTypeMap[aaiaConfigTypeID]
+
+			insertStmt := []byte("( " + strconv.Itoa(curtConfigTypeId) + ",0," + strconv.Itoa(aaiaConfigID) + ",'" + strings.TrimSpace(valueName) + "'),\n")
+			n, err = queriesForMissingConfigs.WriteAt(insertStmt, missingConfigsOffset)
+			if err != nil {
+				return err
+			}
+			missingConfigsOffset += int64(n)
+
+		} //end if aaiaConfigID > 0
 	}
 	return err
 }
@@ -399,7 +426,8 @@ func GetConfigTypeMap() (map[int]int, error) {
 func GetAcesConfigValueName(idField, valueField, table string, id int) (string, error) {
 	var valueName string
 	sqlStmt := "select " + valueField + " from " + table + " where " + idField + " = " + strconv.Itoa(id)
-	db, err := sql.Open("mysql", database.ConnectionString())
+	log.Print("stmt ", sqlStmt)
+	db, err := sql.Open("mysql", database.VcdbConnectionString())
 	if err != nil {
 		return valueName, err
 	}
@@ -413,6 +441,10 @@ func GetAcesConfigValueName(idField, valueField, table string, id int) (string, 
 
 	err = stmt.QueryRow().Scan(&valueName)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			//TODO list the weirdest lacks of configs
+			err = nil
+		}
 		return valueName, err
 	}
 	return valueName, err

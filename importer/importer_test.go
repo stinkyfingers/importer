@@ -34,7 +34,7 @@ func TestImporter(t *testing.T) {
 		// So(err, ShouldBeNil)
 
 		////make BaseVehicle tabele inserts from "baseVehiclessNeededInBaseVehiclesTable"
-		err := GetQueriesForNewBaseVehiclesAndSubmodels(dbCollection)
+		err := GetQueriesToInsertMissingConfigs(dbCollection)
 		So(err, ShouldBeNil)
 
 	})
