@@ -18,7 +18,7 @@ func TestImporter(t *testing.T) {
 		// file := "/Users/macuser/Desktop/Polk/AriesLongTestData.csv"
 
 		// file := "/Users/macuser/Desktop/Polk/Aries_Offroad_Coverage_US_201410.csv"
-		dbCollection := "aries"
+		dbCollection := "ariesTest"
 		t.Log(dbCollection)
 
 		// file := "/Users/macuser/Desktop/Polk/Trailer_Hitches_Coverage_US_201410.csv"
