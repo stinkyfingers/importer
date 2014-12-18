@@ -100,7 +100,7 @@ func SmgArray(sbs []SubmodelRaw) []SubmodelGroup {
 
 func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 	var subIds []int
-	existingSubIdArray, err := GetArrayOfAAIASubmodelIDsForWhichThereExistsACurtBaseID()
+	existingSubIdArray, err := GetArrayOfAAIASubmodelIDsForWhichThereExistsACurtSubmodelID()
 	if err != nil {
 		return subIds, err
 	}
@@ -160,12 +160,19 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 					if err != nil && i == 0 && j == 0 { //avoid multiple entries
 						if err.Error() == "needsub" {
 							log.Print("need a submodel vehicle ", submodel.SubID)
-							sql := "((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(submodel.SubID) + ")),\n"
+							sql := "((select s.ID from Submodel as s where b.AAIASubmodelID = " + strconv.Itoa(submodel.SubID) + ")),\n"
 							n, err := subNeed.WriteAt([]byte(sql), subOffset)
 							if err != nil {
 								return subIds, err
 							}
 							subOffset += int64(n)
+							//enter ugly nested query in Vehicle_Part too
+							sqlVehPart := []byte("(select ID from vcdb_Vehicle where BaseVehicleID = " + strconv.Itoa(submodel.BaseID) + " and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = " + strconv.Itoa(submodel.SubID) + ") and ConfigID = 0 , (select partID from Part where oldPartNumber = '" + part + "'))")
+							m, err := partNeed.WriteAt([]byte(sqlVehPart), partOffset)
+							if err != nil {
+								return subIds, err
+							}
+							partOffset += int64(m)
 						}
 						if err.Error() == "needpart" {
 							log.Print("Need a part ", part, " for vehicleID ", vehicleID)
@@ -197,10 +204,15 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 			}
 
 		} else {
-			//add base to submodel group - will search for submodels by baseId
+			//add submodel to config group - will search for configs by subId
 			subIds = append(subIds, submodel.SubID)
 		}
 	}
+	//remove dupes from file
+	err = RemoveDuplicates("exports/SubmodelsNeeded.txt")
+	err = RemoveDuplicates("exports/Submodel_PartsNeeded.txt")
+	err = RemoveDuplicates("exports/SubmodelsNeededInSubmodelTable.csv")
+	err = RemoveDuplicates("exports/BaseVehiclesNeededInBaseVehicleTable.csv")
 	return subIds, err
 }
 
@@ -254,7 +266,7 @@ func CheckSubmodelAndParts(aaiaSubmodelId, aaiaBaseVehicleId int, partNumber str
 	return vehicleID, err
 }
 
-func GetArrayOfAAIASubmodelIDsForWhichThereExistsACurtBaseID() ([]int, error) {
+func GetArrayOfAAIASubmodelIDsForWhichThereExistsACurtSubmodelID() ([]int, error) {
 	var err error
 	var id int
 	var arrayIDs []int

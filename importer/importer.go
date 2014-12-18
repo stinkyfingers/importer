@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-//run once
+//run once - captures csv, turns into a mongoDB collection
 func ImportCsv(filename string, headerLines int, dbCollection string) error {
 	log.Print("Running")
 	var err error
@@ -48,6 +48,7 @@ func RunDiff(dbCollection string) error {
 	configVehicles, err := MongoToConfig(subIds, dbCollection)
 	log.Print("Total vehicles to check: ", len(configVehicles))
 
+	//TODO - stop here and "processMissingConfigs"
 	cons := CgArray(configVehicles)
 	log.Print("Number of vehicles (grouped by VehicleID) to audit the configurations of: ", len(cons))
 
@@ -73,6 +74,14 @@ func GetQueriesForNewBaseVehiclesAndSubmodels(dbCollection string) error {
 	return err
 }
 
+func GetQueriesToInsertConfigs(dbCollection string) error {
+	err := QueriesToInsertMissingConfigs(dbCollection)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
 //run this before RunDiff() if you're having trouble with max_connections (may want to run after to reset max_connections too).
 func setMaxConnections(num int) error {
 	var err error
@@ -92,4 +101,25 @@ func setMaxConnections(num int) error {
 		return err
 	}
 	return err
+}
+
+func RunBaseVehiclesOnly(dbCollection string) ([]int, error) {
+	var baseIds []int
+	bvs, err := MongoToBase(dbCollection)
+	if err != nil {
+		return baseIds, err
+	}
+	log.Print("Total baseVehicles to check: ", len(bvs))
+
+	bases := BvgArray(bvs)
+
+	baseIds, err = AuditBaseVehicles(bases)
+	log.Print("Number of groups of base models to pass into submodels: ", len(baseIds))
+
+	err = QueriesToInsertBaseVehiclesInBaseVehicleTable(dbCollection)
+	if err != nil {
+		return baseIds, err
+	}
+	log.Print(baseIds)
+	return baseIds, err
 }

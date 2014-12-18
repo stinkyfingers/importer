@@ -58,6 +58,7 @@ func MongoToBase(dbCollection string) ([]BaseVehicleRaw, error) {
 	return bvs, err
 }
 
+//creates array of BaseVehicleGroups, which contain arrays of vehicles, which contain arrays of partNumbers (oldPartNumbers)
 func BvgArray(bvs []BaseVehicleRaw) []BaseVehicleGroup {
 	var bases []BaseVehicleGroup
 
@@ -107,6 +108,7 @@ func BvgArray(bvs []BaseVehicleRaw) []BaseVehicleGroup {
 
 func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 	var baseIds []int
+	//get reference arrays
 	existingBaseIdArray, err := GetArrayOfAAIABaseVehicleIDsForWhichThereExistsACurtBaseID()
 	if err != nil {
 		return baseIds, err
@@ -117,6 +119,7 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 		return baseIds, err
 	}
 
+	//create files to write
 	baseNeed, err := os.Create("exports/BaseVehiclesNeeded.txt")
 	if err != nil {
 		return baseIds, err
@@ -153,6 +156,7 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 	n, err = partInPartTableNeed.WriteAt(h, partTableOffset)
 	partTableOffset += int64(n)
 
+	//run diff
 	for _, base := range bases {
 		allSame := true
 		for i := 0; i < len(base.Vehicles); i++ {
@@ -177,6 +181,13 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 								return baseIds, err
 							}
 							baseOffset += int64(n)
+							//enter ugly nested query in Vehicle_Part too
+							sqlVehPart := []byte("(select ID from vcdb_Vehicle where BaseVehicleID = (select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + ") and SubmodelID = 0 and ConfigID = 0 , (select partID from Part where oldPartNumber = '" + part + "')),\n")
+							m, err := partNeed.WriteAt([]byte(sqlVehPart), partOffset)
+							if err != nil {
+								return baseIds, err
+							}
+							partOffset += int64(m)
 						}
 						if err.Error() == "needpart" {
 							log.Print("Need a part ", part, " for vehicleID ", vehicleID)
@@ -212,6 +223,12 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 			baseIds = append(baseIds, base.BaseID)
 		}
 	}
+	//remove dupes from file
+	err = RemoveDuplicates("exports/BaseVehiclesNeeded.txt")
+	err = RemoveDuplicates("exports/BaseVehicle_PartsNeeded.txt")
+	err = RemoveDuplicates("exports/BaseVehiclesNeededInBaseVehicleTable.csv")
+	err = RemoveDuplicates("exports/PartsNeededInPartTable.csv")
+
 	return baseIds, err
 }
 
