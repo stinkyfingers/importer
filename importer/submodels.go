@@ -128,7 +128,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 	n, err = partNeed.WriteAt(h, partOffset)
 	partOffset += int64(n)
 
-	subInSubTableNeed, err := os.Create("exports/SubmodelsNeededInSubmodelTable.txt")
+	subInSubTableNeed, err := os.Create("exports/SubmodelsNeededInSubmodelTable.csv")
 	if err != nil {
 		return subIds, err
 	}

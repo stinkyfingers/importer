@@ -18,7 +18,7 @@ func TestImporter(t *testing.T) {
 		// file := "/Users/macuser/Desktop/Polk/AriesLongTestData.csv"
 
 		// file := "/Users/macuser/Desktop/Polk/Aries_Offroad_Coverage_US_201410.csv"
-		dbCollection := "ariesTest"
+		dbCollection := "aries"
 		t.Log(dbCollection)
 
 		// file := "/Users/macuser/Desktop/Polk/Trailer_Hitches_Coverage_US_201410.csv"
@@ -42,6 +42,12 @@ func TestImporter(t *testing.T) {
 		// // make BaseVehicle tabele inserts from "baseVehiclessNeededInBaseVehiclesTable"
 		// err = QueriesToInsertMissingConfigs(dbCollection)
 		// So(err, ShouldBeNil)
+
+		err = getVehiclesByBase(dbCollection, "exports/BaseVehiclesNeededInBaseVehicleTable.csv")
+		So(err, ShouldBeNil)
+
+		err = getVehiclesBySubmodel(dbCollection, "exports/SubmodelsNeededInSubmodelTable.txt")
+		So(err, ShouldBeNil)
 
 	})
 
