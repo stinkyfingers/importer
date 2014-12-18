@@ -82,7 +82,7 @@ func getVehiclesBySubmodel(dbCollection string, filename string) error {
 	if err != nil {
 		return err
 	}
-	h := []byte(" insert into Submodel (AAIASubmodelID, Name) values \n")
+	h := []byte(" insert into Submodel (AAIASubmodelID, SubmodelName) values \n")
 	off := int64(0)
 	n, err := bvbq.WriteAt(h, off)
 	if err != nil {
@@ -119,7 +119,7 @@ func getVehiclesBySubmodel(dbCollection string, filename string) error {
 			return err
 		}
 		log.Print(sv)
-		h = []byte("(" + strconv.Itoa(sv.SubmodelID) + "," + sv.SubmodelName + "),\n")
+		h = []byte("(" + strconv.Itoa(sv.SubmodelID) + ",'" + sv.SubmodelName + "'),\n")
 		n, err := bvbq.WriteAt(h, off)
 		if err != nil {
 			return err
