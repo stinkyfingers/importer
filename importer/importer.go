@@ -20,7 +20,7 @@ func ImportCsv(filename string, headerLines int, dbCollection string) error {
 }
 
 //run repeatedly - entering new vehicles and vehicleparts from the generated queries will reduce subsequent output from this function
-func RunDiff(dbCollection string) error {
+func RunDiff(dbCollection string, auditConfigs bool) error {
 	bvs, err := MongoToBase(dbCollection)
 	if err != nil {
 		return err
@@ -51,10 +51,11 @@ func RunDiff(dbCollection string) error {
 	//TODO - stop here and "processMissingConfigs"
 	cons := CgArray(configVehicles)
 	log.Print("Number of vehicles (grouped by VehicleID) to audit the configurations of: ", len(cons))
-
-	err = AuditConfigs(cons)
-	if err != nil {
-		return err
+	if auditConfigs == true {
+		err = AuditConfigs(cons)
+		if err != nil {
+			return err
+		}
 	}
 	return err
 }

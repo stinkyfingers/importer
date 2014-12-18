@@ -68,7 +68,7 @@ var (
 		join BaseVehicle as b on b.ID = v.BaseVehicleID
 		join Submodel as s on s.ID = v.SubmodelID
 		join VehicleConfigAttribute as vca on vca.VehicleConfigID = v.ConfigID`
-	insertVehiclePartStmt   = `insert into vcdb_VehiclePart (VehicleID, PartNumber) values (?, select PartNumber = (select partID from Part where oldPartNumber = ?))`
+	insertVehiclePartStmt   = `insert into vcdb_VehiclePart (VehicleID, PartNumber) values (?, (select partID from Part where oldPartNumber = ?))`
 	insertVehicleConfigStmt = `insert into VehicleConfig (AAIAVehicleConfigID) values (0)`
 )
 
@@ -91,11 +91,12 @@ func initMap() {
 func MongoToConfig(subIds []int, dbCollection string) ([]ConfigVehicleRaw, error) {
 	var err error
 	var cgs []ConfigVehicleRaw
-	vehiclesDifferentiatedByConfig, err := os.Create("exports/VehiclesDifferentiatedByConfig.csv") //List of every vehicle that we're going to process by config, beforehand
-	if err != nil {
-		return cgs, err
-	}
-	off := int64(0)
+	var crs []CsvVehicle
+	// vehiclesDifferentiatedByConfig, err := os.Create("exports/VehiclesDifferentiatedByConfig.csv") //List of every vehicle that we're going to process by config, beforehand
+	// if err != nil {
+	// 	return cgs, err
+	// }
+	// off := int64(0)
 
 	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
 	if err != nil {
@@ -103,17 +104,37 @@ func MongoToConfig(subIds []int, dbCollection string) ([]ConfigVehicleRaw, error
 	}
 	defer session.Close()
 	collection := session.DB("importer").C(dbCollection)
-	err = collection.Find(bson.M{"submodelId": bson.M{"$in": subIds}}).All(&cgs)
 
-	for _, cg := range cgs {
-		b := []byte(strconv.Itoa(cg.BaseID) + "," + strconv.Itoa(cg.SubmodelID) + "," + strconv.Itoa(cg.VehicleID) + "," + strconv.Itoa(int(cg.VehicleTypeID)) + "," + strconv.Itoa(int(cg.FuelTypeID)) + "," + strconv.Itoa(int(cg.FuelDeliveryID)) + "," + strconv.Itoa(int(cg.AcesLiter)) + "," + strconv.Itoa(int(cg.AcesCC)) + "," + strconv.Itoa(int(cg.AcesCID)) + "," + strconv.Itoa(int(cg.AcesCyl)) + "," + cg.AcesBlockType + "," + strconv.Itoa(int(cg.AspirationID)) + "," + strconv.Itoa(int(cg.DriveTypeID)) + "," + strconv.Itoa(int(cg.BodyTypeID)) + "," + strconv.Itoa(int(cg.BodyNumDoorsID)) + "," + strconv.Itoa(int(cg.EngineVinID)) + "," + strconv.Itoa(int(cg.RegionID)) + "," + strconv.Itoa(int(cg.PowerOutputID)) + "," + strconv.Itoa(int(cg.FuelDelConfigID)) + "," + strconv.Itoa(int(cg.BodyStyleConfigID)) + "," + strconv.Itoa(int(cg.ValvesID)) + "," + strconv.Itoa(int(cg.CylHeadTypeID)) + "," + cg.BlockType + "," + strconv.Itoa(int(cg.EngineBaseID)) + "," + strconv.Itoa(int(cg.EngineConfigID)) + "," + cg.PartNumber + "\n")
-		n, err := vehiclesDifferentiatedByConfig.WriteAt(b, off)
+	//KEEP
+	// //write to csv - configVehiclesRaw yet to process
+	// err = collection.Find(bson.M{"submodelId": bson.M{"$in": subIds}}).All(&cgs)
+	// for _, cg := range cgs {
+	// 	b := []byte(strconv.Itoa(cg.BaseID) + "," + strconv.Itoa(cg.SubmodelID) + "," + strconv.Itoa(cg.VehicleID) + "," + strconv.Itoa(int(cg.VehicleTypeID)) + "," + strconv.Itoa(int(cg.FuelTypeID)) + "," + strconv.Itoa(int(cg.FuelDeliveryID)) + "," + strconv.Itoa(int(cg.AcesLiter)) + "," + strconv.Itoa(int(cg.AcesCC)) + "," + strconv.Itoa(int(cg.AcesCID)) + "," + strconv.Itoa(int(cg.AcesCyl)) + "," + cg.AcesBlockType + "," + strconv.Itoa(int(cg.AspirationID)) + "," + strconv.Itoa(int(cg.DriveTypeID)) + "," + strconv.Itoa(int(cg.BodyTypeID)) + "," + strconv.Itoa(int(cg.BodyNumDoorsID)) + "," + strconv.Itoa(int(cg.EngineVinID)) + "," + strconv.Itoa(int(cg.RegionID)) + "," + strconv.Itoa(int(cg.PowerOutputID)) + "," + strconv.Itoa(int(cg.FuelDelConfigID)) + "," + strconv.Itoa(int(cg.BodyStyleConfigID)) + "," + strconv.Itoa(int(cg.ValvesID)) + "," + strconv.Itoa(int(cg.CylHeadTypeID)) + "," + cg.BlockType + "," + strconv.Itoa(int(cg.EngineBaseID)) + "," + strconv.Itoa(int(cg.EngineConfigID)) + "," + cg.PartNumber + "\n")
+	// 	n, err := vehiclesDifferentiatedByConfig.WriteAt(b, off)
+	// 	if err != nil {
+	// 		return cgs, err
+	// 	}
+	// 	off += int64(n)
+	// }
+	// err = RemoveDuplicates("exports/VehiclesDifferentiatedByConfig.csv")
+
+	//write to csv raw vehicles
+	err = collection.Find(bson.M{"submodelId": bson.M{"$in": subIds}}).All(&crs)
+
+	csvVehiclesDifferentiatedByConfig, err := os.Create("exports/CsvVehiclesDifferentiatedByConfig.csv") //List of every vehicle that we're going to process by config, beforehand
+	if err != nil {
+		return cgs, err
+	}
+	csvVoff := int64(0)
+	for _, cg := range crs {
+		b := []byte(cg.Make + "," + cg.Model + "," + cg.SubModel + "," + cg.Year + "," + strconv.Itoa(int(cg.GVW)) + "," + strconv.Itoa(cg.VehicleID) + "," + strconv.Itoa(cg.BaseVehicleID) + "," + strconv.Itoa(cg.YearID) + "," + strconv.Itoa(cg.MakeID) + "," + strconv.Itoa(cg.ModelID) + "," + strconv.Itoa(cg.SubmodelID) + "," + strconv.Itoa(int(cg.VehicleTypeID)) + "," + strconv.Itoa(int(cg.FuelTypeID)) + "," + strconv.Itoa(int(cg.FuelDeliveryID)) + "," + strconv.Itoa(int(cg.AcesLiter)) + "," + strconv.Itoa(int(cg.AcesCC)) + "," + strconv.Itoa(int(cg.AcesCID)) + "," + strconv.Itoa(int(cg.AcesCyl)) + "," + cg.AcesBlockType + "," + strconv.Itoa(int(cg.AspirationID)) + "," + strconv.Itoa(int(cg.DriveTypeID)) + "," + strconv.Itoa(int(cg.BodyTypeID)) + "," + strconv.Itoa(int(cg.BodyNumDoorsID)) + "," + strconv.Itoa(int(cg.EngineVinID)) + "," + strconv.Itoa(int(cg.RegionID)) + "," + strconv.Itoa(int(cg.PowerOutputID)) + "," + strconv.Itoa(int(cg.FuelDelConfigID)) + "," + strconv.Itoa(int(cg.BodyStyleConfigID)) + "," + strconv.Itoa(int(cg.ValvesID)) + "," + strconv.Itoa(int(cg.CylHeadTypeID)) + "," + cg.BlockType + "," + strconv.Itoa(int(cg.EngineBaseID)) + "," + strconv.Itoa(int(cg.EngineConfigID)) + "," + cg.PCDBPartTerminologyName + "," + string(cg.Position) + "," + cg.PartNumber + "," + cg.PartDesc + "," + strconv.Itoa(cg.VehicleCount) + "," + strconv.Itoa(cg.DistributedPartOpportunity) + "," + strconv.Itoa(cg.MaximumPartOpportunity) + "\n")
+		n, err := csvVehiclesDifferentiatedByConfig.WriteAt(b, csvVoff)
 		if err != nil {
 			return cgs, err
 		}
-		off += int64(n)
+		csvVoff += int64(n)
 	}
-	err = RemoveDuplicates("exports/VehiclesDifferentiatedByConfig.csv")
+
 	return cgs, err
 }
 
@@ -159,7 +180,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	// 	return err
 	// }
 
-	config_PartsNeeded, err := os.Create("Config_PartsNeeded.txt")
+	config_PartsNeeded, err := os.Create("exports/Config_PartsNeeded.txt")
 	if err != nil {
 		return err
 	}
@@ -646,6 +667,10 @@ func ProcessConfigs(configVehicleGroup *ConfigVehicleGroup, configsToProcess map
 
 		} //end config loop
 		err = FindVehicleWithAttributes(configVehicleGroup.BaseID, configVehicleGroup.SubID, partNumber, configAttributeArray)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
 
 	} //end Part Number loop
 
@@ -654,6 +679,7 @@ func ProcessConfigs(configVehicleGroup *ConfigVehicleGroup, configsToProcess map
 
 func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
 	//build goddamn query
+	//find vehicle with these attri
 	sqlStmt := `select  v.ID from vcdb_Vehicle as v 
 		join BaseVehicle as b on b.ID = v.BaseVehicleID
 		join Submodel as s on s.ID = v.SubmodelID
@@ -687,16 +713,19 @@ func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, 
 	err = stmt.QueryRow(cBaseID, cSubmodelID).Scan(&vId)
 	log.Print("vId and err ", vId, err)
 	if err != nil {
+		log.Print("NEED VEHICLE")
 		if err == sql.ErrNoRows {
 			//no matching vehicle, must create
 			err = CreateVehicleConfigAttributes(cBaseID, cSubmodelID, partNumber, configAttributeArray)
 			if err != nil {
+				log.Print(err)
 				return err
 			}
 
 		}
 		return err
 	} else {
+		log.Print("VEHICLE FOUND, CHECKING PARTS")
 		//insert vehiclePart if no match
 		findPartStmt := "select ID from vcdb_VehiclePart where VehicleID = ? and PartNumber = ?"
 		stmt, err = db.Prepare(findPartStmt)
@@ -716,7 +745,7 @@ func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, 
 			}
 			return err //actual error
 		}
-		log.Print("Part ", partNumber, " exists for ", cBaseID, cSubmodelID)
+		log.Print("VEHICLEPART FOUND - Part ", partNumber, " exists for ", cBaseID, cSubmodelID)
 		//end find and/or insert
 		return err
 	}
@@ -730,7 +759,7 @@ func CreateVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 		return err
 	}
 	defer db.Close()
-
+	log.Print("insert vehicleConfig")
 	//new vehicleConfig
 	stmt, err := db.Prepare(insertVehicleConfigStmt)
 	if err != nil {
@@ -746,6 +775,7 @@ func CreateVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 	}
 	vConfigId := int(id)
 
+	log.Print("insert vehicle")
 	//insert new vehicle first
 	vehicleInsertStmt := `insert into vcdb_Vehicle (BaseVehicleID, SubModelID, ConfigID,AppID) values ((select ID from  BaseVehicle where AAIABaseVehicleID = ?), (select ID from Submodel where AAIASubmodelID = ?),?,0)`
 	stmt, err = db.Prepare(vehicleInsertStmt)
@@ -767,12 +797,11 @@ func CreateVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 	for i := 1; i < len(configAttributeArray); i++ {
 		// sqlStmt += sqlAddOns
 		if configAttributeArray[i] != 0 {
-			sqlStmt += `(` + strconv.Itoa(configAttributeArray[i]) + `,` + strconv.Itoa(vConfigId) + `)`
-			if i != (len(configAttributeArray) - 1) {
-				sqlStmt += ","
-			}
+			sqlStmt += `(` + strconv.Itoa(configAttributeArray[i]) + `,` + strconv.Itoa(vConfigId) + `),`
 		}
 	}
+	sqlStmt = strings.TrimRight(sqlStmt, ",")
+	log.Print("insert vehicleConfigAttributes", sqlStmt)
 	stmt, err = db.Prepare(sqlStmt)
 	if err != nil {
 		return err
@@ -783,12 +812,16 @@ func CreateVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 	if err != nil {
 		return err
 	}
-	log.Print("HERE")
+	log.Print("HERE - insert vehicle")
 	err = InsertVehiclePart(vId, partNumber)
+	if err != nil {
+		return err
+	}
 	return err
 }
 
 func InsertVehiclePart(vId int, partNum string) error {
+	log.Print("INsert Vehicle")
 	db, err := sql.Open("mysql", database.ConnectionString())
 	if err != nil {
 		return err

@@ -152,18 +152,25 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 		return baseIds, err
 	}
 	partTableOffset := int64(0)
-	h = []byte("AAIABaseVehicleID,\n")
+	h = []byte("PartNumber,\n")
 	n, err = partInPartTableNeed.WriteAt(h, partTableOffset)
 	partTableOffset += int64(n)
 
 	//run diff
+	var baseTally, subTally int
 	for _, base := range bases {
 		allSame := true
 		for i := 0; i < len(base.Vehicles); i++ {
 			if i > 0 {
 				allSame = reflect.DeepEqual(base.Vehicles[i].PartNumbers, base.Vehicles[i-1].PartNumbers)
 				log.Print(allSame)
-				break
+				if allSame == true {
+					baseTally++
+				} else {
+					subTally++
+					break
+				}
+				// break
 			}
 		}
 		if allSame == true {
@@ -207,7 +214,7 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 							baseTableOffset += int64(n)
 						}
 						if err.Error() == "nooldpartinparttable" {
-							b := []byte(part + "\n")
+							b := []byte("'" + part + "',\n")
 							n, err := partInPartTableNeed.WriteAt(b, partTableOffset)
 							if err != nil {
 								return baseIds, err
@@ -228,6 +235,7 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 	err = RemoveDuplicates("exports/BaseVehicle_PartsNeeded.txt")
 	err = RemoveDuplicates("exports/BaseVehiclesNeededInBaseVehicleTable.csv")
 	err = RemoveDuplicates("exports/PartsNeededInPartTable.csv")
+	log.Print("base: ", baseTally, "    sub: ", subTally)
 
 	return baseIds, err
 }

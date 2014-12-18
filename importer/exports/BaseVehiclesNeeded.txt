@@ -1,7 +1,12 @@
 insert into vcdb_Vehicle (BaseVehicleID) values 
+ ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 18050)),
+ ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 18432)),
  ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 18584)),
+ ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 18588)),
  ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 18681)),
  ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 19130)),
+ ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 19131)),
+ ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 23996)),
  ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 24049)),
  ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 28878)),
  ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = 28881)),

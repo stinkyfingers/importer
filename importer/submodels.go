@@ -109,7 +109,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 		return subIds, err
 	}
 
-	subNeed, err := os.Create("exports/SubmodelsNeeded")
+	subNeed, err := os.Create("exports/SubmodelsNeeded.txt")
 	if err != nil {
 		return subIds, err
 	}
@@ -118,7 +118,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 	n, err := subNeed.WriteAt(h, subOffset)
 	subOffset += int64(n)
 
-	partNeed, err := os.Create("exports/Submodel_PartsNeeded")
+	partNeed, err := os.Create("exports/Submodel_PartsNeeded.txt")
 	if err != nil {
 		return subIds, err
 	}
@@ -127,13 +127,13 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 	n, err = partNeed.WriteAt(h, partOffset)
 	partOffset += int64(n)
 
-	subInSubTableNeed, err := os.Create("exports/SubmodelsNeededInSubmodelTable")
+	subInSubTableNeed, err := os.Create("exports/SubmodelsNeededInSubmodelTable.txt")
 	if err != nil {
 		return subIds, err
 	}
 	subTableOffset := int64(0)
 
-	baseInBaseTableNeed, err := os.Create("exports/BaseVehiclesNeededInBaseVehicleTable.csv")
+	baseInBaseTableNeed, err := os.Create("exports/BaseVehiclesNeededInBaseVehicleTable2.csv")
 	if err != nil {
 		return subIds, err
 	}
@@ -142,16 +142,26 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 	n, err = baseInBaseTableNeed.WriteAt(h, baseTableOffset)
 	baseTableOffset += int64(n)
 
+	var subTally, configTally int
+
 	for _, submodel := range submodels {
 		allSame := true
 		for i := 0; i < len(submodel.Vehicles); i++ {
 			if i > 0 {
 				allSame = reflect.DeepEqual(submodel.Vehicles[i].PartNumbers, submodel.Vehicles[i-1].PartNumbers)
 				log.Print(allSame)
-				break
+				if allSame == true {
+					subTally++
+				} else {
+					configTally++
+					break
+				}
+				// break
+
 			}
 		}
 		if allSame == true {
+			log.Print("YOU ARE HERE __________")
 			//check and add part(s) to submodel vehicle
 			//TODO verify that this works
 			for i, vehicle := range submodel.Vehicles {
@@ -184,6 +194,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 							partOffset += int64(n)
 						}
 						if err.Error() == "needsubmodelinsubmodeltable" {
+							log.Print("need submodel in submodel table")
 							b := []byte(strconv.Itoa(submodel.SubID) + "\n")
 							n, err := subInSubTableNeed.WriteAt(b, subTableOffset)
 							if err != nil {
@@ -212,7 +223,8 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 	err = RemoveDuplicates("exports/SubmodelsNeeded.txt")
 	err = RemoveDuplicates("exports/Submodel_PartsNeeded.txt")
 	err = RemoveDuplicates("exports/SubmodelsNeededInSubmodelTable.csv")
-	err = RemoveDuplicates("exports/BaseVehiclesNeededInBaseVehicleTable.csv")
+	err = RemoveDuplicates("exports/BaseVehiclesNeededInBaseVehicleTable2.csv")
+	log.Print("subs to add: ", subTally, "   configs to pass on: ", configTally)
 	return subIds, err
 }
 

@@ -23,14 +23,14 @@ func TestImporter(t *testing.T) {
 
 		// file := "/Users/macuser/Desktop/Polk/Trailer_Hitches_Coverage_US_201410.csv"
 
-		// err := ImportCsv(file, 1, dbCollection)
+		// err = ImportCsv(file, 1, dbCollection)
 		// So(err, ShouldBeNil)
 
 		// // Process data from Mongo
 
 		err = setMaxConnections(800)
 		So(err, ShouldBeNil)
-		err = RunDiff(dbCollection)
+		err = RunDiff(dbCollection, false) //false - no audit configs; no DB writes
 		So(err, ShouldBeNil)
 		err = setMaxConnections(151)
 		So(err, ShouldBeNil)
