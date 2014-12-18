@@ -1,1 +1,7 @@
 insert into vcdb_Vehicle (BaseVehicleID) values 
+((select s.ID from Submodel as s where b.AAIASubmodelID = 1308)),
+((select s.ID from Submodel as s where b.AAIASubmodelID = 257)),
+((select s.ID from Submodel as s where b.AAIASubmodelID = 331)),
+((select s.ID from Submodel as s where b.AAIASubmodelID = 687)),
+((select s.ID from Submodel as s where b.AAIASubmodelID = 688)),
+((select s.ID from Submodel as s where b.AAIASubmodelID = 968)),

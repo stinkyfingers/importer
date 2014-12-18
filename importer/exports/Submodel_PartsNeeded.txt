@@ -1,1 +1,14 @@
-insert into vcdb_VehiclePart(VehicleID, PartNumber) 
+insert into vcdb_VehiclePart(VehicleID, PartNumber) values 
+(13420, (select partID from Part where oldPartNumber = '1052')),
+(13422, (select partID from Part where oldPartNumber = '1052')),
+(35016, (select partID from Part where oldPartNumber = '3046F')),
+(35017, (select partID from Part where oldPartNumber = '3046F')),
+(35018, (select partID from Part where oldPartNumber = '3046')),
+(35033, (select partID from Part where oldPartNumber = '3046')),
+(36779, (select partID from Part where oldPartNumber = '1052')),
+(select ID from vcdb_Vehicle where BaseVehicleID = 119478 and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = 1308) and ConfigID = 0 , (select partID from Part where oldPartNumber = '2065')),
+(select ID from vcdb_Vehicle where BaseVehicleID = 18683 and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = 331) and ConfigID = 0 , (select partID from Part where oldPartNumber = '1047')),
+(select ID from vcdb_Vehicle where BaseVehicleID = 5263 and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = 257) and ConfigID = 0 , (select partID from Part where oldPartNumber = '3047')),
+(select ID from vcdb_Vehicle where BaseVehicleID = 5265 and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = 687) and ConfigID = 0 , (select partID from Part where oldPartNumber = '3048')),
+(select ID from vcdb_Vehicle where BaseVehicleID = 5265 and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = 688) and ConfigID = 0 , (select partID from Part where oldPartNumber = '3048')),
+(select ID from vcdb_Vehicle where BaseVehicleID = 8226 and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = 968) and ConfigID = 0 , (select partID from Part where oldPartNumber = '2045')),

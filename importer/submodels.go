@@ -91,6 +91,7 @@ func SmgArray(sbs []SubmodelRaw) []SubmodelGroup {
 			v.ID = row.VehicleID
 			v.PartNumbers = append(v.PartNumbers, row.PartNumber)
 			sg.SubID = row.ID
+			sg.BaseID = row.BaseID
 			sg.Vehicles = append(sg.Vehicles, v)
 			subs = append(subs, sg)
 		}
@@ -123,7 +124,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 		return subIds, err
 	}
 	partOffset := int64(0)
-	h = []byte("insert into vcdb_VehiclePart(VehicleID, PartNumber) ")
+	h = []byte("insert into vcdb_VehiclePart(VehicleID, PartNumber) values \n")
 	n, err = partNeed.WriteAt(h, partOffset)
 	partOffset += int64(n)
 
@@ -166,6 +167,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 			//TODO verify that this works
 			for i, vehicle := range submodel.Vehicles {
 				for j, part := range vehicle.PartNumbers {
+					log.Print(submodel)
 					vehicleID, err := CheckSubmodelAndParts(submodel.SubID, submodel.BaseID, part, existingSubIdArray, existingBaseIdArray)
 					if err != nil && i == 0 && j == 0 { //avoid multiple entries
 						if err.Error() == "needsub" {
@@ -177,7 +179,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 							}
 							subOffset += int64(n)
 							//enter ugly nested query in Vehicle_Part too
-							sqlVehPart := []byte("(select ID from vcdb_Vehicle where BaseVehicleID = " + strconv.Itoa(submodel.BaseID) + " and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = " + strconv.Itoa(submodel.SubID) + ") and ConfigID = 0 , (select partID from Part where oldPartNumber = '" + part + "'))")
+							sqlVehPart := []byte("(select ID from vcdb_Vehicle where BaseVehicleID = " + strconv.Itoa(submodel.BaseID) + " and SubmodelID = (select s.ID from Submodel as s where s.AAIASubmodelID = " + strconv.Itoa(submodel.SubID) + ") and ConfigID = 0 , (select partID from Part where oldPartNumber = '" + part + "')),\n")
 							m, err := partNeed.WriteAt([]byte(sqlVehPart), partOffset)
 							if err != nil {
 								return subIds, err
@@ -186,7 +188,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 						}
 						if err.Error() == "needpart" {
 							log.Print("Need a part ", part, " for vehicleID ", vehicleID)
-							sql := "values(" + strconv.Itoa(vehicleID) + ", (select partID from Part where oldPartNumber = '" + part + "')),\n"
+							sql := "(" + strconv.Itoa(vehicleID) + ", (select partID from Part where oldPartNumber = '" + part + "')),\n"
 							n, err := partNeed.WriteAt([]byte(sql), partOffset)
 							if err != nil {
 								return subIds, err
@@ -203,6 +205,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 							subTableOffset += int64(n)
 						}
 						if err.Error() == "needbasevehiclesinbasevehicletable" {
+							log.Print("need base", submodel.BaseID)
 							b := []byte(strconv.Itoa(submodel.BaseID) + "\n")
 							n, err := baseInBaseTableNeed.WriteAt(b, baseTableOffset)
 							if err != nil {
@@ -216,6 +219,7 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 
 		} else {
 			//add submodel to config group - will search for configs by subId
+			log.Print("appending to subIDS")
 			subIds = append(subIds, submodel.SubID)
 		}
 	}
