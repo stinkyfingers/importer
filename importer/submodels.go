@@ -33,7 +33,7 @@ var (
 		join BaseVehicle as b on b.ID = v.BaseVehicleID
 		where b.AAIABaseVehicleID = ?
 		and s.AAIASubmodelID = ?
-		and (v.ConfigID = 0 or v.Config is null)`
+		and (v.ConfigID = 0 or v.ConfigID is null)`
 	arrayOfAAIASubmodelIDs = `select AAIASubmodelID from Submodel`
 )
 
@@ -180,9 +180,10 @@ func AuditSubmodels(submodels []SubmodelGroup) ([]int, error) {
 			//TODO verify that this works
 			for i, vehicle := range submodel.Vehicles {
 				for j, part := range vehicle.PartNumbers {
-					log.Print(submodel)
+					// log.Print(submodel)
 					vehicleID, err := CheckSubmodelAndParts(submodel.SubID, submodel.BaseID, part, existingSubIdArray, existingBaseIdArray, existingOldPartNumbersArray)
 					if err != nil && i == 0 && j == 0 { //avoid multiple entries
+						log.Print("ERR", err)
 						if err.Error() == "needsub" {
 							log.Print("need a submodel vehicle ", submodel.SubID)
 							sql := "((select ID from BaseVehicle where AAIABaseVehicleID = " + strconv.Itoa(submodel.BaseID) + "),(select s.ID from Submodel as s where s.AAIASubmodelID = " + strconv.Itoa(submodel.SubID) + " limit 1),0,0),\n"
