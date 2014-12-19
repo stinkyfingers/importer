@@ -3,11 +3,14 @@ package importer
 import (
 	"encoding/csv"
 	"github.com/curt-labs/polkImporter/helpers/database"
+	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"log"
+	// "log"
 	"os"
 	"strconv"
+
+	"database/sql"
 )
 
 type SimpleVehicle struct {
@@ -63,13 +66,29 @@ func getVehiclesByBase(dbCollection string, filename string) error {
 		if err != nil {
 			return err
 		}
-		log.Print(sv)
-		h = []byte("(" + strconv.Itoa(sv.BaseID) + "," + strconv.Itoa(sv.AAIAYearID) + ",(select ID from vcdb_Make where AAIAMakeID = " + strconv.Itoa(sv.AAIAMakeID) + "),(select ID from vcdb_Model where AAIAModelID = " + strconv.Itoa(sv.AAIAModelID) + ")),\n")
-		n, err := bvbq.WriteAt(h, off)
+		//make sure modelID exists
+		db, err := sql.Open("mysql", database.ConnectionString())
 		if err != nil {
 			return err
 		}
-		off += int64(n)
+		defer db.Close()
+
+		stmt, err := db.Prepare("select ID from vcdb_Model where AAIAModelID = ?")
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+		var id int
+		err = stmt.QueryRow(sv.AAIAModelID).Scan(&id)
+		if err == nil {
+
+			h = []byte("(" + strconv.Itoa(sv.BaseID) + "," + strconv.Itoa(sv.AAIAYearID) + ",(select ID from vcdb_Make where AAIAMakeID = " + strconv.Itoa(sv.AAIAMakeID) + "),(select ID from vcdb_Model where AAIAModelID = " + strconv.Itoa(sv.AAIAModelID) + ")),\n")
+			n, err := bvbq.WriteAt(h, off)
+			if err != nil {
+				return err
+			}
+			off += int64(n)
+		}
 
 	}
 
@@ -118,14 +137,28 @@ func getVehiclesBySubmodel(dbCollection string, filename string) error {
 		if err != nil {
 			return err
 		}
-		log.Print(sv)
-		h = []byte("(" + strconv.Itoa(sv.SubmodelID) + ",'" + sv.SubmodelName + "'),\n")
-		n, err := bvbq.WriteAt(h, off)
+		//make sure modelID exists
+		db, err := sql.Open("mysql", database.ConnectionString())
 		if err != nil {
 			return err
 		}
-		off += int64(n)
+		defer db.Close()
 
+		stmt, err := db.Prepare("select ID from vcdb_Model where AAIAModelID = ?")
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+		var id int
+		err = stmt.QueryRow(sv.AAIAModelID).Scan(&id)
+		if err == nil {
+			h = []byte("(" + strconv.Itoa(sv.SubmodelID) + ",'" + sv.SubmodelName + "'),\n")
+			n, err := bvbq.WriteAt(h, off)
+			if err != nil {
+				return err
+			}
+			off += int64(n)
+		}
 	}
 
 	return err
