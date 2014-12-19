@@ -125,7 +125,7 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 		return baseIds, err
 	}
 	baseOffset := int64(0)
-	h := []byte("insert into vcdb_Vehicle (BaseVehicleID,SubmodelID,AppID,RegionID) values \n")
+	h := []byte("insert into vcdb_Vehicle (BaseVehicleID,AppID,RegionID) values \n")
 	n, err := baseNeed.WriteAt(h, baseOffset)
 	baseOffset += int64(n)
 
@@ -182,7 +182,7 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 					if err != nil && i == 0 && j == 0 { //avoid multiple entries
 						if err.Error() == "needbase" {
 							log.Print("need a base vehicle ", base.BaseID)
-							sql := " ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + "),0,0,0),\n"
+							sql := " ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + "),0,0),\n"
 							n, err := baseNeed.WriteAt([]byte(sql), baseOffset)
 							if err != nil {
 								return baseIds, err

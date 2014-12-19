@@ -28,12 +28,12 @@ func TestImporter(t *testing.T) {
 
 		// // Process data from Mongo
 
-		err = setMaxConnections(800)
-		So(err, ShouldBeNil)
-		err = RunDiff(dbCollection, false) //false - no audit configs; no DB writes
-		So(err, ShouldBeNil)
-		err = setMaxConnections(151)
-		So(err, ShouldBeNil)
+		// err = setMaxConnections(800)
+		// So(err, ShouldBeNil)
+		// err = RunDiff(dbCollection, false) //false - no audit configs; no DB writes
+		// So(err, ShouldBeNil)
+		// err = setMaxConnections(151)
+		// So(err, ShouldBeNil)
 
 		// //make BaseVehicle tabele inserts from "baseVehiclessNeededInBaseVehiclesTable"
 		// err := GetQueriesForNewBaseVehiclesAndSubmodels(dbCollection)
@@ -43,11 +43,11 @@ func TestImporter(t *testing.T) {
 		// err = QueriesToInsertMissingConfigs(dbCollection)
 		// So(err, ShouldBeNil)
 
-		// err = getVehiclesByBase(dbCollection, "exports/BaseVehiclesNeededInBaseVehicleTable.csv")
-		// So(err, ShouldBeNil)
+		err = getVehiclesByBase(dbCollection, "exports/BaseVehiclesNeededInBaseVehicleTable.csv")
+		So(err, ShouldBeNil)
 
-		// err = getVehiclesBySubmodel(dbCollection, "exports/SubmodelsNeededInSubmodelTable.csv")
-		// So(err, ShouldBeNil)
+		err = getVehiclesBySubmodel(dbCollection, "exports/SubmodelsNeededInSubmodelTable.csv")
+		So(err, ShouldBeNil)
 
 	})
 
