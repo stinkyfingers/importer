@@ -35,7 +35,7 @@ var (
 		join vcdb_Vehicle as v on v.BaseVehicleID = b.ID
 		where b.AAIABaseVehicleID = ?
 		and (v.SubmodelID = 0 or v.SubmodelID is null)
-		and (v.ConfigID = 0 or v.SubmodelID is null)`
+		and (v.ConfigID = 0 or v.ConfigID is null)`
 	getVehiclePart = `select vp.ID from vcdb_VehiclePart as vp 
 		join Part as p on p.partID = vp.PartNumber
 		where p.oldPartNumber = ?
@@ -125,7 +125,7 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 		return baseIds, err
 	}
 	baseOffset := int64(0)
-	h := []byte("insert into vcdb_Vehicle (BaseVehicleID) values \n")
+	h := []byte("insert into vcdb_Vehicle (BaseVehicleID,SubmodelID,AppID,RegionID) values \n")
 	n, err := baseNeed.WriteAt(h, baseOffset)
 	baseOffset += int64(n)
 
@@ -182,14 +182,14 @@ func AuditBaseVehicles(bases []BaseVehicleGroup) ([]int, error) {
 					if err != nil && i == 0 && j == 0 { //avoid multiple entries
 						if err.Error() == "needbase" {
 							log.Print("need a base vehicle ", base.BaseID)
-							sql := " ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + ")),\n"
+							sql := " ((select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + "),0,0,0),\n"
 							n, err := baseNeed.WriteAt([]byte(sql), baseOffset)
 							if err != nil {
 								return baseIds, err
 							}
 							baseOffset += int64(n)
 							//enter ugly nested query in Vehicle_Part too
-							sqlVehPart := []byte("(select ID from vcdb_Vehicle where BaseVehicleID = (select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + ") and SubmodelID = 0 and ConfigID = 0 , (select partID from Part where oldPartNumber = '" + part + "')),\n")
+							sqlVehPart := []byte("((select ID from vcdb_Vehicle where BaseVehicleID = (select b.ID from BaseVehicle as b where b.AAIABaseVehicleID = " + strconv.Itoa(base.BaseID) + ") and SubmodelID = 0 and (ConfigID is null or ConfigID = 0)) , (select partID from Part where oldPartNumber = '" + part + "')),\n")
 							m, err := partNeed.WriteAt([]byte(sqlVehPart), partOffset)
 							if err != nil {
 								return baseIds, err
