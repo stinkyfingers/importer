@@ -25,6 +25,7 @@ func ConnectionString() string {
 	// 	return "root:@tcp(127.0.0.1:3306)/CurtDev_Empty?parseTime=true&loc=America%2FChicago"
 	// }
 	return "root:@tcp(127.0.0.1:3306)/ariesauto?parseTime=true&loc=America%2FChicago"
+
 }
 
 func VcdbConnectionString() string {

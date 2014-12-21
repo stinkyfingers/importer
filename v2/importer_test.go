@@ -30,19 +30,22 @@ func TestImporter(t *testing.T) {
 
 		// err = CaptureCsv("exports/VehiclesToDiffBySubmodel.csv", 0, submodelCollection)
 		// So(err, ShouldBeNil)
-		err = CaptureCsv("exports/VehiclesToDiffByConfig.csv", 0, configCollection)
-		So(err, ShouldBeNil)
+		// err = CaptureCsv("exports/VehiclesToDiffByConfig.csv", 0, configCollection)
+		// So(err, ShouldBeNil)
 
-		err = setMaxConnections(1200)
-		So(err, ShouldBeNil)
-		// // err = DiffBaseVehicles(dbCollection, false) //false - no audit configs; no DB writes
-		// // So(err, ShouldBeNil)
+		// err = setMaxConnections(1200)
+		// So(err, ShouldBeNil)
+		// err = DiffBaseVehicles(dbCollection) //false - no audit configs; no DB writes
+		// So(err, ShouldBeNil)
 
 		// err = DiffSubmodels(submodelCollection)
 		// So(err, ShouldBeNil)
 
-		err = setMaxConnections(151)
+		err = DiffConfigs(configCollection)
 		So(err, ShouldBeNil)
+
+		// err = setMaxConnections(151)
+		// So(err, ShouldBeNil)
 
 		// err = RemoveDuplicates("exports/VehiclePartJoins.txt")
 		// So(err, ShouldBeNil)
