@@ -48,6 +48,7 @@ var (
 	insertModel                           = "insert into vcdb_Model(AAIAModelID, ModelName, VehicleTypeID) values(?,?,?)"
 	insertBaseVehicleInVehicleTable       = "insert into vcdb_Vehicle(BaseVehicleID, RegionID) values(?,0)"
 	insertVehiclePartJoin                 = "insert into vcdb_VehiclePart(VehicleID, PartNumber) values(?,?)"
+	checkVehiclePart                      = "select PartNumber from vcdb_VehiclePart where VehicleID = ? and PartNumber = ?"
 )
 
 var initMaps sync.Once
@@ -59,14 +60,15 @@ var baseMap map[int]int
 var modelMap map[int]int
 var makeMap map[int]int
 var baseToVehicleMap map[int]int
-var vehiclePartMap map[int]int
+
+// var vehiclePartMap map[int]int
 var vehiclePartJoinsOffset int64 = 0
 
 func initMap() {
 	var err error
 	// existingOldPartNumbersArray, _ = GetArrayOfOldPartNumbersForWhichThereExistsACurtPartID()
 	// existingBaseIdArray, _ = GetArrayOfAAIABaseVehicleIDsForWhichThereExistsACurtBaseID()
-	missingPartNumbers, err = createMissingPartNumbers()
+	missingPartNumbers, err = createMissingPartNumbers("MissingPartNumbers_Base")
 	if err != nil {
 		log.Print("err creating missingPartNumbers ", err)
 	}
@@ -96,10 +98,10 @@ func initMap() {
 	if err != nil {
 		log.Print(err)
 	}
-	vehiclePartMap, err = getVehiclePartMap()
-	if err != nil {
-		log.Print(err)
-	}
+	// vehiclePartMap, err = getVehiclePartMap()
+	// if err != nil {
+	// 	log.Print(err)
+	// }
 }
 
 //For all mongodb entries, returns BaseVehicleRaws
@@ -254,7 +256,8 @@ func CheckBaseVehicleAndParts(aaiaBaseId int, partNumber string, dbCollection st
 	// log.Print("vehicle ID ", vehicleId, " part id ", partId)
 
 	//check vehicle part join
-	err = CheckVehiclePartJoin(vehicleId, partId, false)
+	log.Print("VID ", vehicleId, "   partID", partId)
+	err = CheckVehiclePartJoin(vehicleId, partId, true)
 	if err != nil {
 		return vehicleId, err
 	}
@@ -314,34 +317,61 @@ func InsertBaseVehicleIntoBaseVehicleTable(aaiaBaseId int, dbCollection string) 
 
 func CheckVehiclePartJoin(vehicleId, partId int, doInserts bool) error {
 	var err error
-	if pid, ok := vehiclePartMap[vehicleId]; ok {
-		if pid == partId {
-			//all is good and done
-			return nil
-		}
+	// if pid, ok := vehiclePartMap[vehicleId]; ok {
+	// 	log.Print("pid ", pid, "  v ", vehicleId)
+	// 	if pid == partId {
+	// 		log.Print("Foud ", pid, vehicleId)
+	// 		//all is good and done
+	// 		return nil
+	// 	}
+	// }
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return err
 	}
-	if doInserts == false {
-		b := []byte("(" + strconv.Itoa(vehicleId) + "," + strconv.Itoa(partId) + "),\n")
-		n, err := vehiclePartJoins.WriteAt(b, vehiclePartJoinsOffset)
-		if err != nil {
-			return err
-		}
-		vehiclePartJoinsOffset += int64(n)
-	}
-	if doInserts == true {
-		db, err := sql.Open("mysql", database.ConnectionString())
-		if err != nil {
-			return err
-		}
-		defer db.Close()
+	defer db.Close()
 
-		stmt, err := db.Prepare(insertVehiclePartJoin)
-		if err != nil {
-			return err
-		}
-		defer stmt.Close()
-		_, err = stmt.Exec(vehicleId, partId)
-		if err != nil {
+	stmt, err := db.Prepare(checkVehiclePart)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	var partIdConfirm int
+	err = stmt.QueryRow(vehicleId, partId).Scan(&partIdConfirm)
+	if err == nil {
+		return nil
+	} else {
+		if err == sql.ErrNoRows {
+			log.Print("PASSED VP")
+			err = nil
+			if doInserts == false {
+				b := []byte("(" + strconv.Itoa(vehicleId) + "," + strconv.Itoa(partId) + "),\n")
+				n, err := vehiclePartJoins.WriteAt(b, vehiclePartJoinsOffset)
+				if err != nil {
+					return err
+				}
+				vehiclePartJoinsOffset += int64(n)
+			}
+			if doInserts == true {
+				// db, err := sql.Open("mysql", database.ConnectionString())
+				// if err != nil {
+				// 	return err
+				// }
+				// defer db.Close()
+
+				stmt, err := db.Prepare(insertVehiclePartJoin)
+				if err != nil {
+					return err
+				}
+				defer stmt.Close()
+
+				_, err = stmt.Exec(vehicleId, partId)
+				if err != nil {
+					return err
+				}
+			}
+
+		} else {
 			return err
 		}
 	}
@@ -441,8 +471,8 @@ func CheckModel(aaiaModelId int, modelName string, vehicleTypeId int) (int, erro
 	}
 }
 
-func createMissingPartNumbers() (*os.File, error) {
-	missingPartNumbers, err := os.Create("exports/MissingPartNumbers.csv")
+func createMissingPartNumbers(title string) (*os.File, error) {
+	missingPartNumbers, err := os.Create("exports/" + title + ".csv")
 	if err != nil {
 		return missingPartNumbers, err
 	}

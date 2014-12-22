@@ -99,6 +99,14 @@ func initConfigMap() {
 	if err != nil {
 		log.Print(err)
 	}
+	partMap, err = getPartMap()
+	if err != nil {
+		log.Print(err)
+	}
+	missingPartNumbers, err = createMissingPartNumbers("MissingPartNumbers_Configs")
+	if err != nil {
+		log.Print("err creating missingPartNumbers ", err)
+	}
 }
 
 //For all mongodb entries, returns BaseVehicleRaws
@@ -145,111 +153,113 @@ func CgArray(cgs []ConfigVehicleRaw) []ConfigVehicleGroup {
 
 func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	var err error
-	// config_PartsNeeded, err := os.Create("exports/Config_PartsNeeded.txt")
-	// if err != nil {
-	// 	return err
-	// }
-	// b := []byte("insert into vcdb_VehiclePart (VehicleID, PartNumber) values ")
-	// n, err := config_PartsNeeded.WriteAt(b, int64(0))
-	// if err != nil {
-	// 	return err
-	// }
-	// configPartNeededOffset += int64(n)
+	initConfigMaps.Do(initConfigMap)
 
 	for _, configVehicleGroup := range configVehicleGroups {
 		log.Print("VEHICLE GROUP: ", configVehicleGroup)
+		var ok bool
 
 		configsToProcess := make(map[string][]string)
 
 		for i, configs := range configVehicleGroup.ConfigVehicles {
-			if i > 0 { //not the first configVehicle
+			if _, ok = partMap[configs.PartNumber]; ok {
+				if i > 0 { //not the first configVehicle
 
-				if configs.FuelTypeID != configVehicleGroup.ConfigVehicles[i-1].FuelTypeID {
-					// fuelType = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(6)+","+strconv.Itoa(int(configs.FuelTypeID)))
-				}
-				if configs.FuelDeliveryID != configVehicleGroup.ConfigVehicles[i-1].FuelDeliveryID {
-					// fuelDeliveryID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(20)+","+strconv.Itoa(int(configs.FuelDeliveryID)))
-				}
+					if configs.FuelTypeID != configVehicleGroup.ConfigVehicles[i-1].FuelTypeID {
+						// fuelType = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(6)+","+strconv.Itoa(int(configs.FuelTypeID)))
+					}
+					if configs.FuelDeliveryID != configVehicleGroup.ConfigVehicles[i-1].FuelDeliveryID {
+						// fuelDeliveryID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(20)+","+strconv.Itoa(int(configs.FuelDeliveryID)))
+					}
 
-				// if configs.AcesCC != configVehicleGroup.ConfigVehicles[i-1].AcesCC {
-				// 	acesCC = true
-				// 	// configsToProcess = append()
-				// }
-				// if configs.AcesCID != configVehicleGroup.ConfigVehicles[i-1].AcesCID {
-				// 	acesCID = true
-				// 	// configsToProcess = append()
-				// }
+					// if configs.AcesCC != configVehicleGroup.ConfigVehicles[i-1].AcesCC {
+					// 	acesCC = true
+					// 	// configsToProcess = append()
+					// }
+					// if configs.AcesCID != configVehicleGroup.ConfigVehicles[i-1].AcesCID {
+					// 	acesCID = true
+					// 	// configsToProcess = append()
+					// }
 
-				if configs.AspirationID != configVehicleGroup.ConfigVehicles[i-1].AspirationID {
-					// aspirationID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(8)+","+strconv.Itoa(int(configs.AspirationID)))
-				}
-				if configs.DriveTypeID != configVehicleGroup.ConfigVehicles[i-1].DriveTypeID {
-					// driveTypeID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(3)+","+strconv.Itoa(int(configs.DriveTypeID)))
-				}
-				if configs.BodyTypeID != configVehicleGroup.ConfigVehicles[i-1].BodyTypeID {
-					// bodyTypeID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(2)+","+strconv.Itoa(int(configs.BodyTypeID)))
-				}
-				if configs.BodyNumDoorsID != configVehicleGroup.ConfigVehicles[i-1].BodyNumDoorsID {
-					// bodyNumDoorsID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(4)+","+strconv.Itoa(int(configs.BodyNumDoorsID)))
-				}
-				if configs.EngineVinID != configVehicleGroup.ConfigVehicles[i-1].EngineVinID {
-					// engineVinID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(16)+","+strconv.Itoa(int(configs.EngineVinID)))
-				}
-				// if configs.RegionID != configVehicleGroup.ConfigVehicles[i-1].RegionID {
-				// 	regionID = true
-				// 	// configsToProcess = append()
-				// }
-				if configs.PowerOutputID != configVehicleGroup.ConfigVehicles[i-1].PowerOutputID {
-					// powerOutputID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(25)+","+strconv.Itoa(int(configs.PowerOutputID)))
-				}
-				if configs.FuelDelConfigID != configVehicleGroup.ConfigVehicles[i-1].FuelDelConfigID {
-					// fuelDelConfigID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(19)+","+strconv.Itoa(int(configs.FuelDelConfigID)))
-				}
-				// if configs.BodyStyleConfigID != configVehicleGroup.ConfigVehicles[i-1].BodyStyleConfigID {
-				// 	bodyStyleConfigID = true
-				// 	configsToProcess = append()
-				// }
-				if configs.ValvesID != configVehicleGroup.ConfigVehicles[i-1].ValvesID {
-					// valvesID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(40)+","+strconv.Itoa(int(configs.ValvesID)))
-				}
-				if configs.CylHeadTypeID != configVehicleGroup.ConfigVehicles[i-1].CylHeadTypeID {
-					// cylHeadTypeID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(12)+","+strconv.Itoa(int(configs.CylHeadTypeID)))
-				}
-				// if configs.BlockType != configVehicleGroup.ConfigVehicles[i-1].BlockType {
-				// 	blockType = true
-				// 	configsToProcess = append()
-				// }
-				//TODO
-				// if configs.EngineBaseID != configVehicleGroup.ConfigVehicles[i-1].EngineBaseID {
-				// 	// engineBaseID = true
-				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(13)+","+strconv.Itoa(int(configs.EngineBaseID)))
-				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(14)+","+strconv.Itoa(int(configs.EngineBaseID)))
-				// }
-				// if configs.EngineConfigID != configVehicleGroup.ConfigVehicles[i-1].EngineConfigID {
-				// 	// engineConfigID = true
-				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(13)+","+strconv.Itoa(int(configs.EngineConfigID)))
-				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(14)+","+strconv.Itoa(int(configs.EngineConfigID)))
-				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(15)+","+strconv.Itoa(int(configs.EngineConfigID)))
-				// }
-				// if configs.AcesCyl != configVehicleGroup.ConfigVehicles[i-1].AcesCyl || configs.AcesBlockType != configVehicleGroup.ConfigVehicles[i-1].AcesBlockType || configs.AcesLiter != configVehicleGroup.ConfigVehicles[i-1].AcesLiter {
-				// 	// engineConfigID = true
-				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+strconv.Itoa(int(configs.AcesCyl)))
-				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+configs.AcesBlockType)
-				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+strconv.Itoa(int(configs.AcesLiter)))
-				// }
+					if configs.AspirationID != configVehicleGroup.ConfigVehicles[i-1].AspirationID {
+						// aspirationID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(8)+","+strconv.Itoa(int(configs.AspirationID)))
+					}
+					if configs.DriveTypeID != configVehicleGroup.ConfigVehicles[i-1].DriveTypeID {
+						// driveTypeID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(3)+","+strconv.Itoa(int(configs.DriveTypeID)))
+					}
+					if configs.BodyTypeID != configVehicleGroup.ConfigVehicles[i-1].BodyTypeID {
+						// bodyTypeID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(2)+","+strconv.Itoa(int(configs.BodyTypeID)))
+					}
+					if configs.BodyNumDoorsID != configVehicleGroup.ConfigVehicles[i-1].BodyNumDoorsID {
+						// bodyNumDoorsID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(4)+","+strconv.Itoa(int(configs.BodyNumDoorsID)))
+					}
+					if configs.EngineVinID != configVehicleGroup.ConfigVehicles[i-1].EngineVinID {
+						// engineVinID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(16)+","+strconv.Itoa(int(configs.EngineVinID)))
+					}
+					// if configs.RegionID != configVehicleGroup.ConfigVehicles[i-1].RegionID {
+					// 	regionID = true
+					// 	// configsToProcess = append()
+					// }
+					if configs.PowerOutputID != configVehicleGroup.ConfigVehicles[i-1].PowerOutputID {
+						// powerOutputID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(25)+","+strconv.Itoa(int(configs.PowerOutputID)))
+					}
+					if configs.FuelDelConfigID != configVehicleGroup.ConfigVehicles[i-1].FuelDelConfigID {
+						// fuelDelConfigID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(19)+","+strconv.Itoa(int(configs.FuelDelConfigID)))
+					}
+					// if configs.BodyStyleConfigID != configVehicleGroup.ConfigVehicles[i-1].BodyStyleConfigID {
+					// 	bodyStyleConfigID = true
+					// 	configsToProcess = append()
+					// }
+					if configs.ValvesID != configVehicleGroup.ConfigVehicles[i-1].ValvesID {
+						// valvesID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(40)+","+strconv.Itoa(int(configs.ValvesID)))
+					}
+					if configs.CylHeadTypeID != configVehicleGroup.ConfigVehicles[i-1].CylHeadTypeID {
+						// cylHeadTypeID = true
+						configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(12)+","+strconv.Itoa(int(configs.CylHeadTypeID)))
+					}
+					// if configs.BlockType != configVehicleGroup.ConfigVehicles[i-1].BlockType {
+					// 	blockType = true
+					// 	configsToProcess = append()
+					// }
+					//TODO
+					// if configs.EngineBaseID != configVehicleGroup.ConfigVehicles[i-1].EngineBaseID {
+					// 	// engineBaseID = true
+					// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(13)+","+strconv.Itoa(int(configs.EngineBaseID)))
+					// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(14)+","+strconv.Itoa(int(configs.EngineBaseID)))
+					// }
+					// if configs.EngineConfigID != configVehicleGroup.ConfigVehicles[i-1].EngineConfigID {
+					// 	// engineConfigID = true
+					// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(13)+","+strconv.Itoa(int(configs.EngineConfigID)))
+					// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(14)+","+strconv.Itoa(int(configs.EngineConfigID)))
+					// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(15)+","+strconv.Itoa(int(configs.EngineConfigID)))
+					// }
+					// if configs.AcesCyl != configVehicleGroup.ConfigVehicles[i-1].AcesCyl || configs.AcesBlockType != configVehicleGroup.ConfigVehicles[i-1].AcesBlockType || configs.AcesLiter != configVehicleGroup.ConfigVehicles[i-1].AcesLiter {
+					// 	// engineConfigID = true
+					// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+strconv.Itoa(int(configs.AcesCyl)))
+					// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+configs.AcesBlockType)
+					// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+strconv.Itoa(int(configs.AcesLiter)))
+					// }
 
-			} //end not-the-first configVehicle
+				} //end not-the-first configVehicle
+			} else { //oldPartNumber not in db - write to file
+				b := []byte(configs.PartNumber + "\n")
+				n, err := missingPartNumbers.WriteAt(b, missingPartNumbersOffset)
+				if err != nil {
+					return err
+				}
+				missingPartNumbersOffset += int64(n)
+				continue
+			}
 
 		} //end loop of vehicleGroup configs
 
@@ -272,14 +282,10 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		log.Print("FOR ", configVehicleGroup.VehicleID, configsToProcess)
 		err = ProcessConfigs(&configVehicleGroup, configsToProcess)
 
-		// 	initMaps.Do(initMap)
-
 	} //end of spot-checking each attribute
 
 	// //remove duplicates
-	// err = RemoveDuplicates("exports/MissingConfigTypes.csv")
-	// err = RemoveDuplicates("exports/MissingConfigs.csv")
-	// err = RemoveDuplicates("exports/VehicleConfigurationsNeeded.csv")
+	err = RemoveDuplicates("exports/MissingPartNumbers_Configs.csv")
 
 	log.Print("MADE IT TO THE END. ", err)
 	return err

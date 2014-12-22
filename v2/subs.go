@@ -48,7 +48,7 @@ func submodelMap() {
 	var err error
 	// existingOldPartNumbersArray, _ = GetArrayOfOldPartNumbersForWhichThereExistsACurtPartID()
 	// existingBaseIdArray, _ = GetArrayOfAAIABaseVehicleIDsForWhichThereExistsACurtBaseID()
-	missingPartNumbers, err = createMissingPartNumbers()
+	missingPartNumbers, err = createMissingPartNumbers("MissingPartNumbers_Submodel")
 	if err != nil {
 		log.Print("err creating missingPartNumbers ", err)
 	}
@@ -66,10 +66,10 @@ func submodelMap() {
 		log.Print(err)
 	}
 
-	vehiclePartMap, err = getVehiclePartMap()
-	if err != nil {
-		log.Print(err)
-	}
+	// vehiclePartMap, err = getVehiclePartMap()
+	// if err != nil {
+	// 	log.Print(err)
+	// }
 	subMap, err = getSubMap()
 	if err != nil {
 		log.Print(err)
@@ -242,7 +242,7 @@ func CheckSubmodelAndParts(aaiaSubmodelId int, aaiaBaseId int, partNumber string
 	// log.Print("vehicle ID ", vehicleId, " part id ", partId)
 
 	//check vehicle part join
-	err = CheckVehiclePartJoin(vehicleId, partId, false)
+	err = CheckVehiclePartJoin(vehicleId, partId, true)
 	if err != nil {
 		return vehicleId, err
 	}

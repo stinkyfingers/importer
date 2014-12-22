@@ -9,12 +9,12 @@ import (
 )
 
 var (
-	partMapStmt                = "select oldPartNumber, partID from Part where oldPartNumber is not null"
-	baseMapStmt                = "select AAIABaseVehicleID, ID from BaseVehicle where AAIABaseVehicleID is not null and AAIABaseVehicleID > 0"
-	makeMapStmt                = "select AAIAMakeID, ID from vcdb_Make where AAIAMakeID > 0"
-	modelMapStmt               = "select AAIAModelID, ID from vcdb_Model where AAIAModelID > 0"
-	baseVehicleToVehicleMap    = "select BaseVehicleID, ID from vcdb_Vehicle where (SubmodelID = 0 or SubmodelID is null) and (ConfigID = 0 or ConfigID is null)"
-	vehiclePartStmt            = "select VehicleID, PartNumber from vcdb_VehiclePart where VehicleID is not null and PartNumber is not null"
+	partMapStmt             = "select oldPartNumber, partID from Part where oldPartNumber is not null"
+	baseMapStmt             = "select AAIABaseVehicleID, ID from BaseVehicle where AAIABaseVehicleID is not null and AAIABaseVehicleID > 0"
+	makeMapStmt             = "select AAIAMakeID, ID from vcdb_Make where AAIAMakeID > 0"
+	modelMapStmt            = "select AAIAModelID, ID from vcdb_Model where AAIAModelID > 0"
+	baseVehicleToVehicleMap = "select BaseVehicleID, ID from vcdb_Vehicle where (SubmodelID = 0 or SubmodelID is null) and (ConfigID = 0 or ConfigID is null)"
+	// vehiclePartStmt            = "select VehicleID, PartNumber from vcdb_VehiclePart where VehicleID is not null and PartNumber is not null"
 	subMapStmt                 = "select AAIASubmodelID, ID from Submodel where AAIASubmodelID > 0 and AAIASubmodelID is not null"
 	submodelToVehicleMapStmt   = "select SubmodelID, BaseVehicleID, ID from vcdb_Vehicle where (ConfigID = 0 or ConfigID is null) and SubmodelID > 0"
 	configAttributeTypeMapStmt = "select AcesTypeID, ID from ConfigAttributeType where AcesTypeID is not null and AcesTypeID > 0"
@@ -129,32 +129,32 @@ func getSubMap() (map[int]int, error) {
 	return subMap, err
 }
 
-func getVehiclePartMap() (map[int]int, error) {
-	var err error
-	vpMap := make(map[int]int)
-	db, err := sql.Open("mysql", database.ConnectionString())
-	if err != nil {
-		return vpMap, err
-	}
-	defer db.Close()
+// func getVehiclePartMap() (map[int]int, error) {
+// 	var err error
+// 	vpMap := make(map[int]int)
+// 	db, err := sql.Open("mysql", database.ConnectionString())
+// 	if err != nil {
+// 		return vpMap, err
+// 	}
+// 	defer db.Close()
 
-	stmt, err := db.Prepare(vehiclePartStmt)
-	if err != nil {
-		return vpMap, err
-	}
-	defer stmt.Close()
-	res, err := stmt.Query()
-	var p int
-	var o int
-	for res.Next() {
-		err = res.Scan(&o, &p)
-		if err != nil {
-			return vpMap, err
-		}
-		vpMap[o] = p
-	}
-	return vpMap, err
-}
+// 	stmt, err := db.Prepare(vehiclePartStmt)
+// 	if err != nil {
+// 		return vpMap, err
+// 	}
+// 	defer stmt.Close()
+// 	res, err := stmt.Query()
+// 	var p int
+// 	var o int
+// 	for res.Next() {
+// 		err = res.Scan(&o, &p)
+// 		if err != nil {
+// 			return vpMap, err
+// 		}
+// 		vpMap[o] = p
+// 	}
+// 	return vpMap, err
+// }
 
 func getBaseVehicleToVehicleMap() (map[int]int, error) {
 	var err error
