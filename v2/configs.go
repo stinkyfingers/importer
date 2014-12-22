@@ -68,8 +68,11 @@ var (
 		join BaseVehicle as b on b.ID = v.BaseVehicleID
 		join Submodel as s on s.ID = v.SubmodelID
 		join VehicleConfigAttribute as vca on vca.VehicleConfigID = v.ConfigID`
-	insertVehiclePartStmt   = `insert into vcdb_VehiclePart (VehicleID, PartNumber) values (?, (select partID from Part where oldPartNumber = ?))`
-	insertVehicleConfigStmt = `insert into VehicleConfig (AAIAVehicleConfigID) values (0)`
+	insertVehiclePartStmt    = `insert into vcdb_VehiclePart (VehicleID, PartNumber) values (?, (select partID from Part where oldPartNumber = ?))`
+	insertVehicleConfigStmt  = `insert into VehicleConfig (AAIAVehicleConfigID) values (0)`
+	insertCurtConfigTypeStmt = `insert into ConfigAttributeType(name, AcesTypeID, sort) values (?,?,?)`
+	insertCurtConfigStmt     = `insert into ConfigAttribute(ConfigAttributeTypeID, parentID, vcdbID, value) values(?,0,?,?)`
+	getCurtConfigValueIdStmt = `select ID from ConfigAttribute where ConfigAttributeTypeID = ? and vcdbID = ? `
 )
 
 var (
@@ -81,10 +84,21 @@ var (
 
 var acesTypeCurtTypeMap map[int]int
 var configMap map[string]string
+var configAttributeTypeMap map[int]int
+var configAttributeMap map[string]int
 var initConfigMaps sync.Once
 
 func initConfigMap() {
+	var err error
 	configMap, _ = GetConfigMap()
+	configAttributeTypeMap, err = getConfigAttriguteTypeMap()
+	if err != nil {
+		log.Print(err)
+	}
+	configAttributeMap, err = getConfigAttributeMap()
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 //For all mongodb entries, returns BaseVehicleRaws
@@ -216,30 +230,31 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 				// 	blockType = true
 				// 	configsToProcess = append()
 				// }
-				if configs.EngineBaseID != configVehicleGroup.ConfigVehicles[i-1].EngineBaseID {
-					// engineBaseID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(13)+","+strconv.Itoa(int(configs.EngineBaseID)))
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(14)+","+strconv.Itoa(int(configs.EngineBaseID)))
-				}
-				if configs.EngineConfigID != configVehicleGroup.ConfigVehicles[i-1].EngineConfigID {
-					// engineConfigID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(13)+","+strconv.Itoa(int(configs.EngineConfigID)))
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(14)+","+strconv.Itoa(int(configs.EngineConfigID)))
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(15)+","+strconv.Itoa(int(configs.EngineConfigID)))
-				}
-				if configs.AcesCyl != configVehicleGroup.ConfigVehicles[i-1].AcesCyl || configs.AcesBlockType != configVehicleGroup.ConfigVehicles[i-1].AcesBlockType || configs.AcesLiter != configVehicleGroup.ConfigVehicles[i-1].AcesLiter {
-					// engineConfigID = true
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+strconv.Itoa(int(configs.AcesCyl)))
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+configs.AcesBlockType)
-					configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+strconv.Itoa(int(configs.AcesLiter)))
-				}
+				//TODO
+				// if configs.EngineBaseID != configVehicleGroup.ConfigVehicles[i-1].EngineBaseID {
+				// 	// engineBaseID = true
+				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(13)+","+strconv.Itoa(int(configs.EngineBaseID)))
+				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(14)+","+strconv.Itoa(int(configs.EngineBaseID)))
+				// }
+				// if configs.EngineConfigID != configVehicleGroup.ConfigVehicles[i-1].EngineConfigID {
+				// 	// engineConfigID = true
+				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(13)+","+strconv.Itoa(int(configs.EngineConfigID)))
+				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(14)+","+strconv.Itoa(int(configs.EngineConfigID)))
+				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(15)+","+strconv.Itoa(int(configs.EngineConfigID)))
+				// }
+				// if configs.AcesCyl != configVehicleGroup.ConfigVehicles[i-1].AcesCyl || configs.AcesBlockType != configVehicleGroup.ConfigVehicles[i-1].AcesBlockType || configs.AcesLiter != configVehicleGroup.ConfigVehicles[i-1].AcesLiter {
+				// 	// engineConfigID = true
+				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+strconv.Itoa(int(configs.AcesCyl)))
+				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+configs.AcesBlockType)
+				// 	configsToProcess[configs.PartNumber] = append(configsToProcess[configs.PartNumber], strconv.Itoa(7)+","+strconv.Itoa(int(configs.AcesLiter)))
+				// }
 
 			} //end not-the-first configVehicle
 
 		} //end loop of vehicleGroup configs
 
 		//remove duplicates
-		for _, partsConfigs := range configsToProcess {
+		for i, partsConfigs := range configsToProcess {
 			sort.Strings(partsConfigs)
 			var tempList []string
 			tempList = append(tempList, partsConfigs[0])
@@ -250,7 +265,7 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 					}
 				}
 			}
-			partsConfigs = tempList
+			configsToProcess[i] = tempList
 		}
 
 		//process configs
@@ -279,52 +294,109 @@ func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 // Y: {create configattributes,create joins in vehicleconfigattribute, create vehicle, add part}
 // N: --there should be every config attribute. some are combos
 
+//New
+//for each config type
+//1. is there a Curt config type?
+//N: Create curt type from vcdb
+//2. is there a Curt config (value)?
+//N. Create a Curt Value from vcdb
+//3. Is there a Curt vehicle with these Configs?
+//N: Create curt vehicle
+//4. Is there a Curt PartID for this partnumber?
+//N: log the missing part; break
+//5. Is there a part join for the part associated with these configs?
+//N: Create vcdb_VehiclePart join
+
+//Processes configs for each configVehicleGroup. Takes the configVehicleGroup and a map of partnumber:[]configs to differentiate on.
 func ProcessConfigs(configVehicleGroup *ConfigVehicleGroup, configsToProcess map[string][]string) error {
 	//configVehicleGroup has aaiaBaseID, aaiaSubmodelID, vehicleID
 	//configsToProcess map is map for the above vehicle of partNumber []aaiaConfigType:aaiaConfigValue
 	var err error
-	initMaps.Do(initMap)
+	initConfigMaps.Do(initConfigMap)
 
 	//7 is weird - engine
 	for partNumber, cons := range configsToProcess {
 		var configAttributeArray []int //array of config attributes associated with this part
 		for _, aaiaCon := range cons {
-			aaiaConTypeID := strings.Split(aaiaCon, ",")[0]
-			aaiaConValID := strings.Split(aaiaCon, ",")[1]
-			log.Print("AAIA Type: ", aaiaConTypeID, ", AAIA val:", aaiaConValID, " part-", partNumber)
-			curtCon := configMap[aaiaCon]
+			aaiaConTypeID, err := strconv.Atoi(strings.Split(aaiaCon, ",")[0])
+			if err != nil {
+				return err
+			}
+			aaiaConValID, err := strconv.Atoi(strings.Split(aaiaCon, ",")[1])
+			if err != nil {
+				return err
+			}
 
-			log.Print("CURT CONFIG: ", curtCon)
-			// curtConTypeID, err := strconv.Atoi(strings.Split(curtCon, ",")[0])
-			// if err != nil {
-			// 	return err
-			// }
-			var curtConValID int
-			curtConSplitArray := strings.Split(curtCon, ",")
-			if len(curtConSplitArray) > 1 {
-				curtConValID, err = strconv.Atoi(curtConSplitArray[1])
-				if err != nil {
+			log.Print("AAIA Type: ", aaiaConTypeID, ", AAIA val:", aaiaConValID, " part-", partNumber)
+
+			//#1
+			curtConfigType := configAttributeTypeMap[aaiaConTypeID]
+			if curtConfigType == 0 {
+				log.Print("Missing Type :", aaiaConTypeID)
+				//need configType
+				log.Panic("Missing type")
+			}
+
+			//#2
+			// cTypeAValue := strconv.Itoa(curtConfigType) + ":" + strconv.Itoa(aaiaConValID)
+
+			//can't use map since it's repeatedly updated
+			// curtConfigValue := configAttributeMap[cTypeAValue]
+			curtConfigValue, err := getCurtConfigValue(curtConfigType, aaiaConValID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					if curtConfigValue == 0 {
+						log.Print("Missing Type Value, curttype: ", aaiaConTypeID, " ", aaiaConValID, " ", curtConfigType)
+						//need configValue
+						curtConfigValue, err = insertCurtConfig(aaiaConTypeID, aaiaConValID, curtConfigType)
+						if err != nil {
+							log.Panic(err)
+							return err
+						}
+						log.Print("Created Value: ", curtConfigValue)
+					}
+				} else {
 					return err
 				}
-			} else {
-				//TODO - there are no ConfigAttiributes for this aaia atribute yet  7,13,14,15
 			}
-			configAttributeArray = append(configAttributeArray, curtConValID)
 
-			//find vehicleJoin
+			configAttributeArray = append(configAttributeArray, curtConfigValue)
 
-			// err = CheckVehicleJoin(configVehicleGroup.BaseID, configVehicleGroup.SubID, curtConTypeID, partNumber)
-			// if err == sql.ErrNoRows {
-			// 	//first 'NO'
-			// 	if curtCon != "" {
-			// 		//create joins in vca, vehicle, vehiclepart
-			// 	} else {
-			// 		//create ca, vca, vehcile vehiclepart
+			// //#1 & #2- is there a CurtConfigType and Value
+			// curtCon := configMap[aaiaCon]
+
+			// log.Print("CURT CONFIG: ", curtCon)
+			// // curtConTypeID, err := strconv.Atoi(strings.Split(curtCon, ",")[0])
+			// // if err != nil {
+			// // 	return err
+			// // }
+			// var curtConValID int
+			// curtConSplitArray := strings.Split(curtCon, ",")
+			// if len(curtConSplitArray) > 1 {
+			// 	curtConValID, err = strconv.Atoi(curtConSplitArray[1])
+			// 	if err != nil {
+			// 		return err
 			// 	}
-
+			// } else {
+			// 	//TODO - there are no ConfigAttiributes for this aaia atribute yet  7,13,14,15
 			// }
+			// configAttributeArray = append(configAttributeArray, curtConValID)
+
+			// //find vehicleJoin
+
+			// // err = CheckVehicleJoin(configVehicleGroup.BaseID, configVehicleGroup.SubID, curtConTypeID, partNumber)
+			// // if err == sql.ErrNoRows {
+			// // 	//first 'NO'
+			// // 	if curtCon != "" {
+			// // 		//create joins in vca, vehicle, vehiclepart
+			// // 	} else {
+			// // 		//create ca, vca, vehcile vehiclepart
+			// // 	}
+
+			// // }
 
 		} //end config loop
+		//#3
 		err = FindVehicleWithAttributes(configVehicleGroup.BaseID, configVehicleGroup.SubID, partNumber, configAttributeArray)
 		if err != nil {
 			log.Print(err)
@@ -339,19 +411,19 @@ func ProcessConfigs(configVehicleGroup *ConfigVehicleGroup, configsToProcess map
 func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
 	//build goddamn query
 	//find vehicle with these attri
-	sqlStmt := `select  v.ID from vcdb_Vehicle as v 
+	sqlStmt := `select  v.ID from vcdb_Vehicle as v
 		join BaseVehicle as b on b.ID = v.BaseVehicleID
 		join Submodel as s on s.ID = v.SubmodelID
 		join VehicleConfigAttribute as vca on vca.VehicleConfigID = v.ConfigID
 		where b.AAIABaseVehicleID = ?
 		and s.AAIASubmodelID = ?
-		and vca.VehicleConfigID in 
+		and vca.VehicleConfigID in
 		(select vca.VehicleConfigID from VehicleConfigAttribute as vca
 		where vca.AttributeID = ` + strconv.Itoa(configAttributeArray[0]) + `) `
 
 	for i := 0; i < len(configAttributeArray); i++ {
 		if configAttributeArray[i] != 0 {
-			sqlStmt += ` and vca.VehicleConfigID in 
+			sqlStmt += ` and vca.VehicleConfigID in
 		(select vca.VehicleConfigID from VehicleConfigAttribute as vca
 		where  vca.AttributeID = ` + strconv.Itoa(configAttributeArray[i]) + `) `
 		}
@@ -412,6 +484,239 @@ func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, 
 	return err
 }
 
+func getCurtConfigValue(curtConfigTypeId, aaiaConfigValueId int) (int, error) {
+	var err error
+	var curtConfigValueId int
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return curtConfigValueId, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(getCurtConfigValueIdStmt)
+	if err != nil {
+		return curtConfigValueId, err
+	}
+	defer stmt.Close()
+	err = stmt.QueryRow(curtConfigTypeId, aaiaConfigValueId).Scan(&curtConfigValueId)
+	if err != nil {
+		return curtConfigValueId, err
+	}
+	return curtConfigValueId, err
+}
+
+//insert into ConfigAttribute(ConfigAttributeTypeID, parentID, vcdbID, value) values(?,0,?,?)
+func insertCurtConfig(aaiaConfigType, aaiaConfigValue, curtConfigTypeId int) (int, error) {
+	var err error
+	var curtConfigValueId int
+	var value string
+
+	//get config value (from aaia)
+	value, err = getAcesConfigurationValueName(aaiaConfigType, aaiaConfigValue)
+	if err != nil {
+		return curtConfigValueId, err
+	}
+
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return curtConfigValueId, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(insertCurtConfigStmt)
+	if err != nil {
+		return curtConfigValueId, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Exec(curtConfigTypeId, aaiaConfigValue, value)
+	if err != nil {
+		return curtConfigValueId, err
+	}
+	id, err := res.LastInsertId()
+	curtConfigValueId = int(id)
+	return curtConfigValueId, err
+}
+func getAcesConfigurationValueName(aaiaConfigTypeID, id int) (string, error) {
+	var table, idField, valueField string
+	switch {
+	case aaiaConfigTypeID == 1:
+		table = "WheelBase"
+		idField = table + "ID"
+		valueField = table
+	case aaiaConfigTypeID == 2:
+		table = "BodyType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 3:
+		table = "DriveType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 4:
+		table = "BodyNumDoors"
+		idField = table + "ID"
+		valueField = table
+	case aaiaConfigTypeID == 5:
+		table = "BedLength"
+		idField = table + "ID"
+		valueField = table + ""
+	case aaiaConfigTypeID == 6:
+		table = "FuelType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 7:
+		table = "EngineBase"
+		idField = table + "ID"
+		valueField = "Liter"
+	case aaiaConfigTypeID == 8:
+		table = "Aspiration"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 9:
+		table = "BedType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 10:
+		table = "BrakeABS"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 11:
+		table = "BrakeSystem"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 12:
+		table = "CylinderHeadType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 13:
+		table = "EngineDesignation"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 14:
+		table = "Mfr"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 15:
+		table = "EngineVersion"
+		idField = table + "ID"
+		valueField = table + ""
+	case aaiaConfigTypeID == 16:
+		table = "EngineVin"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 17:
+		table = "BrakeType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 18:
+		table = "SpringType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 19:
+		table = "FuelDeliverySubType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 20:
+		table = "FuelDeliveryType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 21:
+		table = "FuelSystemControlType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 22:
+		table = "FuelSystemDesign"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 23:
+		table = "IgnitionSystemType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 24:
+		table = "MfrBodyCode"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 25:
+		table = "PowerOutput"
+		idField = table + "ID"
+		valueField = "HorsePower"
+	case aaiaConfigTypeID == 26:
+		table = "BrakeType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 27:
+		table = "SpringType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 29:
+		table = "SteeringSystem"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 30:
+		table = "SteeringType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 31:
+		table = "Transmission"
+		idField = table + "ID"
+		valueField = table + "ElecControlledID"
+	// case aaiaConfigTypeID == 34:
+	// 	table = "Transmission"
+	// 	idField = table + "ID"
+	// 	valueField = table + "Name"
+	// case aaiaConfigTypeID == 35:
+	// 	table = "TransmissionBase"
+	// 	idField = table + "ID"
+	// 	valueField = table + "Name"
+	case aaiaConfigTypeID == 36:
+		table = "TransmissionControlType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 37:
+		table = "TransmissionManufacturerCode"
+		idField = table + "ID"
+		valueField = table + ""
+	case aaiaConfigTypeID == 38:
+		table = "TransmissionNumSpeeds"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 39:
+		table = "TransmissionType"
+		idField = table + "ID"
+		valueField = table + "Name"
+	case aaiaConfigTypeID == 40:
+		table = "Valves"
+		idField = table + "ID"
+		valueField = table + "PerEngine"
+	default:
+		log.Panic("Missing Curt Config Type")
+
+	}
+
+	var valueName string
+	sqlStmt := "select " + valueField + " from " + table + " where " + idField + " = " + strconv.Itoa(id)
+	log.Print("stmt ", sqlStmt)
+	db, err := sql.Open("mysql", database.VcdbConnectionString())
+	if err != nil {
+		return valueName, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(sqlStmt)
+	if err != nil {
+		return valueName, err
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow().Scan(&valueName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			//TODO list the weirdest lacks of configs
+			err = nil
+		}
+		return valueName, err
+	}
+	return valueName, err
+}
 func CreateVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
 	db, err := sql.Open("mysql", database.ConnectionString())
 	if err != nil {
@@ -454,17 +759,17 @@ func CreateVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 
 	//insert vehicleConfigAttribute
 	//TODO - fix this
-	sqlStmt := `insert into VehicleConfigAttribute (AttributeID, VehicleConfigID) values (`
-	log.Print("LEN ", len(configAttributeArray))
+	sqlStmt := `insert into VehicleConfigAttribute (AttributeID, VehicleConfigID) values `
 	for i := 1; i < len(configAttributeArray); i++ {
 		// sqlStmt += sqlAddOns
 		if configAttributeArray[i] != 0 {
+			log.Print(configAttributeArray[i], "__", vConfigId)
 			sqlStmt += `(` + strconv.Itoa(configAttributeArray[i]) + `,` + strconv.Itoa(vConfigId) + `),`
 		}
 	}
 
 	sqlStmt = strings.TrimRight(sqlStmt, ",")
-	sqlStmt += ")"
+
 	log.Print("insert vehicleConfigAttributes", sqlStmt)
 	stmt, err = db.Prepare(sqlStmt)
 	if err != nil {

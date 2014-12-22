@@ -9,15 +9,71 @@ import (
 )
 
 var (
-	partMapStmt              = "select oldPartNumber, partID from Part where oldPartNumber is not null"
-	baseMapStmt              = "select AAIABaseVehicleID, ID from BaseVehicle where AAIABaseVehicleID is not null and AAIABaseVehicleID > 0"
-	makeMapStmt              = "select AAIAMakeID, ID from vcdb_Make where AAIAMakeID > 0"
-	modelMapStmt             = "select AAIAModelID, ID from vcdb_Model where AAIAModelID > 0"
-	baseVehicleToVehicleMap  = "select BaseVehicleID, ID from vcdb_Vehicle where (SubmodelID = 0 or SubmodelID is null) and (ConfigID = 0 or ConfigID is null)"
-	vehiclePartStmt          = "select VehicleID, PartNumber from vcdb_VehiclePart where VehicleID is not null and PartNumber is not null"
-	subMapStmt               = "select AAIASubmodelID, ID from Submodel where AAIASubmodelID > 0 and AAIASubmodelID is not null"
-	submodelToVehicleMapStmt = "select SubmodelID, BaseVehicleID, ID from vcdb_Vehicle where (ConfigID = 0 or ConfigID is null) and SubmodelID > 0"
+	partMapStmt                = "select oldPartNumber, partID from Part where oldPartNumber is not null"
+	baseMapStmt                = "select AAIABaseVehicleID, ID from BaseVehicle where AAIABaseVehicleID is not null and AAIABaseVehicleID > 0"
+	makeMapStmt                = "select AAIAMakeID, ID from vcdb_Make where AAIAMakeID > 0"
+	modelMapStmt               = "select AAIAModelID, ID from vcdb_Model where AAIAModelID > 0"
+	baseVehicleToVehicleMap    = "select BaseVehicleID, ID from vcdb_Vehicle where (SubmodelID = 0 or SubmodelID is null) and (ConfigID = 0 or ConfigID is null)"
+	vehiclePartStmt            = "select VehicleID, PartNumber from vcdb_VehiclePart where VehicleID is not null and PartNumber is not null"
+	subMapStmt                 = "select AAIASubmodelID, ID from Submodel where AAIASubmodelID > 0 and AAIASubmodelID is not null"
+	submodelToVehicleMapStmt   = "select SubmodelID, BaseVehicleID, ID from vcdb_Vehicle where (ConfigID = 0 or ConfigID is null) and SubmodelID > 0"
+	configAttributeTypeMapStmt = "select AcesTypeID, ID from ConfigAttributeType where AcesTypeID is not null and AcesTypeID > 0"
+	configAttributeMapStmt     = "select ID, ConfigAttributeTypeID, vcdbID from ConfigAttribute where vcdbID > 0 and vcdbID is not null"
 )
+
+func getConfigAttributeMap() (map[string]int, error) {
+	var err error
+	aMap := make(map[string]int)
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return aMap, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(configAttributeMapStmt)
+	if err != nil {
+		return aMap, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Query()
+	var i, c, v int
+
+	for res.Next() {
+		err = res.Scan(&i, &c, &v)
+		if err != nil {
+			return aMap, err
+		}
+		aMap[strconv.Itoa(c)+":"+strconv.Itoa(v)] = i
+	}
+	return aMap, err
+}
+
+func getConfigAttriguteTypeMap() (map[int]int, error) {
+	var err error
+	aMap := make(map[int]int)
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return aMap, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(configAttributeTypeMapStmt)
+	if err != nil {
+		return aMap, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Query()
+	var a, i int
+
+	for res.Next() {
+		err = res.Scan(&a, &i)
+		if err != nil {
+			return aMap, err
+		}
+		aMap[a] = i
+	}
+	return aMap, err
+}
 
 func getSubmodelBaseToVehicleMap() (map[string]int, error) {
 	var err error

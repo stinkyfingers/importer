@@ -45,6 +45,9 @@ func DiffConfigs(dbCollection string) error {
 	log.Print("Total config vehicles to check: ", len(craws))
 
 	cons := CgArray(craws)
+	// for _, c := range cons {
+	// 	log.Print(c, "\n")
+	// }
 
 	err = AuditConfigs(cons)
 	if err != nil {
