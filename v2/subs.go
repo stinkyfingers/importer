@@ -46,8 +46,6 @@ var submodelBaseToVehicleMap map[string]int
 
 func submodelMap() {
 	var err error
-	// existingOldPartNumbersArray, _ = GetArrayOfOldPartNumbersForWhichThereExistsACurtPartID()
-	// existingBaseIdArray, _ = GetArrayOfAAIABaseVehicleIDsForWhichThereExistsACurtBaseID()
 	missingPartNumbers, err = createMissingPartNumbers("MissingPartNumbers_Submodel")
 	if err != nil {
 		log.Print("err creating missingPartNumbers ", err)
@@ -65,11 +63,19 @@ func submodelMap() {
 	if err != nil {
 		log.Print(err)
 	}
+	makeMap, err = getMakeMap()
+	if err != nil {
+		log.Print(err)
+	}
+	modelMap, err = getModelMap()
+	if err != nil {
+		log.Print(err)
+	}
 
-	// vehiclePartMap, err = getVehiclePartMap()
-	// if err != nil {
-	// 	log.Print(err)
-	// }
+	vehiclePartArray, err = getVehiclePartArray()
+	if err != nil {
+		log.Print(err)
+	}
 	subMap, err = getSubMap()
 	if err != nil {
 		log.Print(err)
@@ -96,12 +102,13 @@ func MongoToSubmodel(dbCollection string) ([]SubmodelRaw, error) {
 }
 
 func SmgArray(sbs []SubmodelRaw) []SubmodelGroup {
+	initSubMaps.Do(submodelMap)
 	var subs []SubmodelGroup
 	for _, row := range sbs {
 		addS := true
 		for i, sub := range subs {
 			if sub.SubID == row.ID {
-				//don't add base
+				//don't add sub
 				addS = false
 
 				addV := true
@@ -142,54 +149,58 @@ func SmgArray(sbs []SubmodelRaw) []SubmodelGroup {
 	return subs
 }
 
-func AuditSubmodels(submodels []SubmodelGroup, dbCollection string) ([]int, error) {
-	var subIds []int
+func AuditSubmodels(submodels []SubmodelGroup, dbCollection string) (int, int, error) {
+	var subIds, doneIds []int
+	var todoCount, doneCount int
 	var err error
-
-	var subTally, configTally int
 
 	for _, submodel := range submodels {
 		allSame := true
 		for i := 0; i < len(submodel.Vehicles); i++ {
 			if i > 0 {
 				allSame = reflect.DeepEqual(submodel.Vehicles[i].PartNumbers, submodel.Vehicles[i-1].PartNumbers)
-				// log.Print(allSame)
-				if allSame == true {
-					subTally++
-				} else {
-					configTally++
-					break
-				}
 			}
 		}
 		if allSame == true {
 			//check and add part(s) to submodel vehicle
-			//TODO verify that this works
 			for _, vehicle := range submodel.Vehicles {
 				for _, part := range vehicle.PartNumbers {
-					// log.Print(submodel)
 					_, err = CheckSubmodelAndParts(submodel.SubID, submodel.BaseID, part, dbCollection)
 					if err != nil {
-						return subIds, err
+						return todoCount, doneCount, err
 					}
-
 				}
 			}
-
+			doneIds = append(doneIds, submodel.BaseID)
 		} else {
 			//add submodel to config group - will search for configs by subId
 			subIds = append(subIds, submodel.SubID)
 		}
 	}
-
-	log.Print("subs to add: ", subTally, "   configs to pass on: ", configTally)
 	//write missing vehicles
 	err = WriteMissingVehiclesToCsv("submodelId", "VehiclesToDiffByConfig", dbCollection, subIds)
 	if err != nil {
-		log.Print(err)
-		return subIds, err
+		return todoCount, doneCount, err
 	}
-	return subIds, err
+
+	//counts for logging
+	todoCount, err = getVehicleCount(subIds, "submodelId", dbCollection)
+	if err != nil {
+		return todoCount, doneCount, err
+	}
+	doneCount, err = getVehicleCount(doneIds, "submodelId", dbCollection)
+	if err != nil {
+		return todoCount, doneCount, err
+	}
+
+	//put to-dos in mongo
+	err = CaptureCsv("exports/VehiclesToDiffByConfig.csv", 0, "ariesConfigs")
+	if err != nil {
+		return todoCount, doneCount, err
+	}
+
+	return todoCount, doneCount, err
+
 }
 
 func CheckSubmodelAndParts(aaiaSubmodelId int, aaiaBaseId int, partNumber string, dbCollection string) (int, error) {
@@ -199,7 +210,6 @@ func CheckSubmodelAndParts(aaiaSubmodelId int, aaiaBaseId int, partNumber string
 	var subId int
 	var ok bool
 	var err error
-	initSubMaps.Do(submodelMap)
 
 	//check part
 	if partId, ok = partMap[partNumber]; !ok {
@@ -221,6 +231,7 @@ func CheckSubmodelAndParts(aaiaSubmodelId int, aaiaBaseId int, partNumber string
 		if err != nil {
 			return vehicleId, err
 		}
+		baseMap[aaiaBaseId] = baseId
 	} else {
 		baseId = baseMap[aaiaBaseId]
 	}
@@ -230,6 +241,7 @@ func CheckSubmodelAndParts(aaiaSubmodelId int, aaiaBaseId int, partNumber string
 		if err != nil {
 			return vehicleId, err
 		}
+		subMap[aaiaBaseId] = subId
 	} else {
 		subId = subMap[aaiaSubmodelId]
 	}
@@ -318,7 +330,11 @@ func CheckVehiclesForSubmodel(subId int, baseId int) (int, error) {
 		}
 		vehicleId = int(id)
 
+		submodelBaseToVehicleMap[subBase] = vehicleId
+		return vehicleId, err
+
 	} else {
+		vehicleId = submodelBaseToVehicleMap[subBase]
 		return vehicleId, err
 	}
 	return vehicleId, err

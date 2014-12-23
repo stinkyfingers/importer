@@ -13,11 +13,17 @@ func DiffBaseVehicles(dbCollection string) error {
 	if err != nil {
 		return err
 	}
-	log.Print("Total baseVehicles to check: ", len(bvs))
+	log.Print("Total individual records to check (using baseVehicleDiff): ", len(bvs))
 
 	bases := BvgArray(bvs)
+	log.Print("Number of Base Vehicles to audit: ", len(bases)) //2743  db.aries.distinct("baseVehicleId").length
 
-	_, err = AuditBaseVehicles(bases, dbCollection)
+	baseIds, doneIds, err := AuditBaseVehicles(bases, dbCollection)
+	log.Print("Rows/vehicles to do: ", baseIds, "  rows/vehicles done: ", doneIds)
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -26,11 +32,13 @@ func DiffSubmodels(dbCollection string) error {
 	if err != nil {
 		return err
 	}
-	log.Print("Total submodels to check: ", len(sbs))
+	log.Print("Total individual records to check (using submodelDiff): ", len(sbs))
 
 	subs := SmgArray(sbs)
+	log.Print("Number of Submodels to audit: ", len(subs))
 
-	_, err = AuditSubmodels(subs, dbCollection)
+	subIds, doneIds, err := AuditSubmodels(subs, dbCollection)
+	log.Print("Rows/vehicles to do: ", subIds, "  rows/vehicles done: ", doneIds)
 	if err != nil {
 		return err
 	}
@@ -42,12 +50,10 @@ func DiffConfigs(dbCollection string) error {
 	if err != nil {
 		return err
 	}
-	log.Print("Total config vehicles to check: ", len(craws))
+	log.Print("Total individual records to check (using configDiff): ", len(craws))
 
 	cons := CgArray(craws)
-	// for _, c := range cons {
-	// 	log.Print(c, "\n")
-	// }
+	log.Print("Number of Vehicles' Configs to audit: ", len(cons))
 
 	err = AuditConfigs(cons)
 	if err != nil {
