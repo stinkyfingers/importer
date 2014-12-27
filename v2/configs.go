@@ -149,8 +149,78 @@ func CgArray(cgs []ConfigVehicleRaw) []ConfigVehicleGroup {
 	return configVehicles
 }
 
-//for each ConfigVehicleGroup in the array, compare config arrays
+//NEW
+// foreach VehicleID's array of configs:
+// for each config compile array of unique config values
+// get length of each
+//split into x groups of vehicles for lowest number of array values x, that is greater than 1
+//repeat for each subgroup until there is only arrays of 1 unique config value
 
+func NewAuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
+	var err error
+
+	for _, cvg := range configVehicleGroups { //each vehicleID with config array
+		err = Reduce(cvg)
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func Reduce(cvg ConfigVehicleGroup) error {
+	var err error
+
+	configArray := make(map[int][]int) //map of configTypeID to array of values
+
+	for _, configs := range cvg.ConfigVehicles { //each configs-set in this vehicleID
+
+		configArray[6] = append(configArray[6], int(configs.FuelTypeID))
+		configArray[20] = append(configArray[20], int(configs.FuelDeliveryID))
+		configArray[7] = append(configArray[7], int(configs.AcesLiter))
+
+	}
+	//renmove duplicates
+	for x, _ := range configArray {
+		configArray[x] = removeDuplicatesFromIntArray(configArray[x])
+	}
+
+	//find shortest over 1
+	for i := 2; i < len(cvg.ConfigVehicles); i++ {
+		for _, ca := range configArray {
+			if len(ca) == i {
+				//differentiate on this
+				log.Print("PWE", i)
+			}
+		}
+	}
+	log.Print(configArray)
+
+	return err
+}
+
+func removeDuplicatesFromIntArray(a []int) []int {
+	var output []int
+	for i, num := range a {
+		var addit bool = true
+		if i == 0 {
+			output = append(output, num)
+		}
+		for _, o := range output {
+			if o == num {
+				addit = false
+			}
+		}
+		if addit == true {
+			output = append(output, num)
+		}
+	}
+	return output
+}
+
+//OLD
+
+//for each ConfigVehicleGroup in the array, compare config arrays
 func AuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	var err error
 	initConfigMaps.Do(initConfigMap)

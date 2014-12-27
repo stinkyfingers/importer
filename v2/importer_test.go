@@ -33,16 +33,19 @@ func TestImporter(t *testing.T) {
 		// err = CaptureCsv("exports/VehiclesToDiffByConfig.csv", 0, configCollection)
 		// So(err, ShouldBeNil)
 
+		// err = CaptureCsv("exports/AriesConfigTest.csv", 1, "ariesConfigTest")
+		// So(err, ShouldBeNil)
+
 		// err = setMaxConnections(1200)
 		// So(err, ShouldBeNil)
 		// err = DiffBaseVehicles(dbCollection) //false - no audit configs; no DB writes
 		// So(err, ShouldBeNil)
 
-		err = DiffSubmodels(submodelCollection)
-		So(err, ShouldBeNil)
-
-		// err = DiffConfigs(configCollection)
+		// err = DiffSubmodels(submodelCollection)
 		// So(err, ShouldBeNil)
+
+		err = DiffConfigs("ariesConfigTest") //usually ariesConfigs -
+		So(err, ShouldBeNil)
 
 		// err = setMaxConnections(151)
 		// So(err, ShouldBeNil)
@@ -59,6 +62,9 @@ func TestImporter(t *testing.T) {
 		// So(err, ShouldBeNil)
 		// m, _ := getSubmodelBaseToVehicleMap()
 		// t.Log(m["1452:6641"])
+
+		// err = CreateTestData()
+		// So(err, ShouldBeNil)
 
 	})
 

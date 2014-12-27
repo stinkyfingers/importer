@@ -55,10 +55,15 @@ func DiffConfigs(dbCollection string) error {
 	cons := CgArray(craws)
 	log.Print("Number of Vehicles' Configs to audit: ", len(cons))
 
-	err = AuditConfigs(cons)
+	err = NewAuditConfigs(cons)
 	if err != nil {
 		return err
 	}
+
+	// err = AuditConfigs(cons)
+	// if err != nil {
+	// 	return err
+	// }
 	return err
 }
 

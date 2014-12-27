@@ -28,6 +28,11 @@ type SubmodelGroup struct {
 	Vehicles []Vehicle
 }
 
+// type Vehicle struct {
+// 	ID          int
+// 	PartNumbers []string
+// }
+
 var (
 	getVehicleIdFromAAIASubmodel = `select v.ID from Submodel as s
 		join vcdb_Vehicle as v on v.SubmodelID = s.ID
@@ -171,7 +176,7 @@ func AuditSubmodels(submodels []SubmodelGroup, dbCollection string) (int, int, e
 					}
 				}
 			}
-			doneIds = append(doneIds, submodel.BaseID)
+			doneIds = append(doneIds, submodel.SubID)
 		} else {
 			//add submodel to config group - will search for configs by subId
 			subIds = append(subIds, submodel.SubID)
