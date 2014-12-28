@@ -10,6 +10,7 @@ import (
 	"errors"
 	"log"
 	// "os"
+	// "reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -49,6 +50,7 @@ type ConfigVehicleGroup struct {
 	VehicleID      int `bson:"vehicleId,omitempty"`
 	SubID          int `bson:"submodelId,omitempty"`
 	BaseID         int `bson:"baseVehicleId,omitempty"`
+	DiffConfigs    []int
 	ConfigVehicles []ConfigVehicleRaw
 }
 
@@ -149,6 +151,507 @@ func CgArray(cgs []ConfigVehicleRaw) []ConfigVehicleGroup {
 	return configVehicles
 }
 
+//New Additive method - for each cvg
+//loop through configVehicles
+//for each field
+//create array of field valeus (unique - remove duplciate)
+//if len(arrayUniquerFieldValues)> 1{
+//create cvgArray [len(arrayUniqueFieldValues)]cvgVehicles
+//for each arrayUniqueFieldValues{
+
+// }
+// }
+
+var newCvgs, newCvgs3, newCvgsDriveType, newCvgsBodyNumDoors, newCvgsEngineVin, newCvgsBodyType, newCvgsAcesLiter, newCvgsAcesCC, newCvgsAcesCid, newCvgsAcesBlock, newCvgsPower []ConfigVehicleGroup
+
+func Reduce2(cvg ConfigVehicleGroup) error {
+	var err error
+
+	//loop through fields
+	var ftype []int
+	for _, c := range cvg.ConfigVehicles {
+		//fuel type
+		ftype = append(ftype, int(c.FuelTypeID))
+	}
+	ftype = removeDuplicatesFromIntArray(ftype)
+
+	//FUEL TYPE
+	if len(ftype) > 1 {
+		mmm := make(map[uint8][]ConfigVehicleRaw)
+
+		for _, c := range cvg.ConfigVehicles {
+			// log.Print(c, mmm)
+			mmm[c.FuelTypeID] = append(mmm[c.FuelTypeID], c)
+		}
+		// log.Print(mmm)
+		for _, m := range mmm {
+			var tempCvg ConfigVehicleGroup
+			tempCvg.BaseID = cvg.BaseID
+			tempCvg.SubID = cvg.SubID
+			tempCvg.VehicleID = cvg.VehicleID
+			for _, mm := range m {
+				tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+			}
+			tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 6) // FUEL TYPE
+			newCvgs = append(newCvgs, tempCvg)
+		}
+	} else {
+		newCvgs = append(newCvgs, cvg)
+	}
+
+	//DO IT LIKE 15 more times....then process the configs
+
+	return err
+}
+
+func Reduce3() error {
+	var err error
+
+	for _, cvg := range newCvgs {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.FuelDeliveryID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.FuelDeliveryID] = append(mmm[c.FuelDeliveryID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                 //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 20) // FUEL DELIVERY
+
+				newCvgs3 = append(newCvgs3, tempCvg)
+			}
+		} else {
+			newCvgs3 = append(newCvgs3, cvg)
+		}
+	}
+
+	return err
+}
+
+func ReduceDriveType() error {
+	var err error
+
+	for _, cvg := range newCvgs3 {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.DriveTypeID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.DriveTypeID] = append(mmm[c.DriveTypeID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 3) // DRIVE TYPE
+
+				newCvgsDriveType = append(newCvgsDriveType, tempCvg)
+			}
+		} else {
+			newCvgsDriveType = append(newCvgsDriveType, cvg)
+		}
+	}
+	//DO IT LIKE 15 more times....then process the configs
+	// log.Print(len(newCvgsDriveType), "\n\n")
+	// for _, r := range newCvgsDriveType {
+	// 	log.Print(r, "\n\n")
+	// }
+	return err
+}
+
+func ReduceBodyNumDoors() error {
+	var err error
+
+	for _, cvg := range newCvgsDriveType {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.BodyNumDoorsID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.BodyNumDoorsID] = append(mmm[c.BodyNumDoorsID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 4) // NUM DOORS
+
+				newCvgsBodyNumDoors = append(newCvgsBodyNumDoors, tempCvg)
+			}
+		} else {
+			newCvgsBodyNumDoors = append(newCvgsBodyNumDoors, cvg)
+		}
+	}
+
+	return err
+}
+
+func ReduceEngineVin() error {
+	var err error
+
+	for _, cvg := range newCvgsBodyNumDoors {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.EngineVinID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.EngineVinID] = append(mmm[c.EngineVinID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 16)
+
+				newCvgsEngineVin = append(newCvgsEngineVin, tempCvg)
+			}
+		} else {
+			newCvgsEngineVin = append(newCvgsEngineVin, cvg)
+		}
+	}
+
+	return err
+}
+
+func ReduceBodyType() error {
+	var err error
+
+	for _, cvg := range newCvgsEngineVin {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.BodyTypeID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.BodyTypeID] = append(mmm[c.BodyTypeID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 16)
+
+				newCvgsBodyType = append(newCvgsBodyType, tempCvg)
+			}
+		} else {
+			newCvgsBodyType = append(newCvgsBodyType, cvg)
+		}
+	}
+	//DO IT LIKE 15 more times....then process the configs
+	log.Print(len(newCvgsBodyType), "\n\n")
+	for _, r := range newCvgsBodyType {
+		log.Print(r, "\n\n")
+	}
+	return err
+}
+
+func ReduceAcesLiter() error {
+	var err error
+
+	for _, cvg := range newCvgsBodyType {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.AcesLiter))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[float64][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.AcesLiter] = append(mmm[c.AcesLiter], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 106) // 6 - Aces Liter - special case
+
+				newCvgsAcesLiter = append(newCvgsAcesLiter, tempCvg)
+			}
+		} else {
+			newCvgsAcesLiter = append(newCvgsAcesLiter, cvg)
+		}
+	}
+	//DO IT LIKE 15 more times....then process the configs
+	log.Print(len(newCvgsAcesLiter), "\n\n")
+	for _, r := range newCvgsAcesLiter {
+		log.Print(r, "\n\n")
+	}
+	return err
+}
+
+func ReduceAcesCC() error {
+	var err error
+
+	for _, cvg := range newCvgsAcesLiter {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.AcesLiter))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[float64][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.AcesLiter] = append(mmm[c.AcesLiter], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 206) // 6 - Aces Liter - special case
+
+				newCvgsAcesCC = append(newCvgsAcesCC, tempCvg)
+			}
+		} else {
+			newCvgsAcesCC = append(newCvgsAcesCC, cvg)
+		}
+	}
+	//DO IT LIKE 15 more times....then process the configs
+	log.Print(len(newCvgsAcesCC), "\n\n")
+	for _, r := range newCvgsAcesCC {
+		log.Print(r, "\n\n")
+	}
+	return err
+}
+
+func ReduceAcesCid() error {
+	var err error
+
+	for _, cvg := range newCvgsAcesCC {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.AcesCID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint16][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.AcesCID] = append(mmm[c.AcesCID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 306) // 6 - Aces Liter - special case
+
+				newCvgsAcesCC = append(newCvgsAcesCC, tempCvg)
+			}
+		} else {
+			newCvgsAcesCC = append(newCvgsAcesCC, cvg)
+		}
+	}
+	//DO IT LIKE 15 more times....then process the configs
+	log.Print(len(newCvgsAcesCC), "\n\n")
+	for _, r := range newCvgsAcesCC {
+		log.Print(r, "\n\n")
+	}
+	return err
+}
+
+func ReduceAcesBlock() error {
+	var err error
+
+	for _, cvg := range newCvgsAcesCid {
+		//loop through fields
+		var ftype []string
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, c.AcesBlockType)
+		}
+		ftype = removeDuplicatesFromStringArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[string][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.AcesBlockType] = append(mmm[c.AcesBlockType], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 306) // 6 - Aces Liter - special case
+
+				newCvgsAcesBlock = append(newCvgsAcesBlock, tempCvg)
+			}
+		} else {
+			newCvgsAcesBlock = append(newCvgsAcesBlock, cvg)
+		}
+	}
+	//DO IT LIKE 15 more times....then process the configs
+	log.Print(len(newCvgsAcesBlock), "\n\n")
+	for _, r := range newCvgsAcesBlock {
+		log.Print(r, "\n\n")
+	}
+	return err
+}
+
+func ReducePowerOutput() error {
+	var err error
+
+	for _, cvg := range newCvgsAcesBlock {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.PowerOutputID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint16][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.PowerOutputID] = append(mmm[c.PowerOutputID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 306) // 6 - Aces Liter - special case
+
+				newCvgsPower = append(newCvgsPower, tempCvg)
+			}
+		} else {
+			newCvgsPower = append(newCvgsPower, cvg)
+		}
+	}
+	//DO IT LIKE 15 more times....then process the configs
+	log.Print(len(newCvgsPower), "\n\n")
+	for _, r := range newCvgsPower {
+		log.Print(r, "\n\n")
+	}
+	return err
+}
+
 //NEW
 // foreach VehicleID's array of configs:
 // for each config compile array of unique config values
@@ -160,11 +663,20 @@ func NewAuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	var err error
 
 	for _, cvg := range configVehicleGroups { //each vehicleID with config array
-		err = Reduce(cvg)
+		err = Reduce2(cvg)
 		if err != nil {
 			return err
 		}
 	}
+	err = Reduce3()
+	err = ReduceDriveType()
+	err = ReduceBodyNumDoors()
+	err = ReduceEngineVin()
+	err = ReduceBodyType()
+	err = ReduceAcesLiter()
+	err = ReduceAcesCid()
+	err = ReduceAcesCC()
+
 	return err
 }
 
@@ -185,15 +697,50 @@ func Reduce(cvg ConfigVehicleGroup) error {
 		configArray[x] = removeDuplicatesFromIntArray(configArray[x])
 	}
 
-	//find shortest over 1
-	for i := 2; i < len(cvg.ConfigVehicles); i++ {
-		for _, ca := range configArray {
-			if len(ca) == i {
-				//differentiate on this
-				log.Print("PWE", i)
-			}
-		}
-	}
+	//we have configArray - an array of configTypes(AAIA) to []Configvalues
+
+	// singleConfigValuesFlag := true
+	// for _, con := range configArray {
+	// 	if len(con) > 1 {
+	// 		singleConfigValuesFlag = false
+	// 		// log.Print("OUT OF LOOP")
+	// 		// break
+	// 	}
+	// }
+	// if singleConfigValuesFlag == true {
+	// 	//TODO process cvg as vehicle w/ configs specified in DiffConfigs
+	// }
+
+	// //there are still configs with multiple values attributed to this vehicleID
+
+	// //find shortest over 1
+	// var broken = false
+	// // var cvgSplits []ConfigVehicleGroup
+	// for i := 2; i < len(cvg.ConfigVehicles); i++ {
+	// 	for configTypeId, ca := range configArray {
+	// 		if len(ca) == i {
+	// 			//differentiate on this
+
+	// 			cvg.DiffConfigs = append(cvg.DiffConfigs, configTypeId) //we're diffing on this configType
+	// 			log.Print("PWE", i, "   ", cvg)
+	// 			// for _, c := range ca {
+	// 			// 	for _, cv:=range cvg.ConfigVehicles{
+	// 			// 		if cv.FuelTypeID == c{
+
+	// 			// 		}
+	// 			// 	}
+	// 			// 	log.Print("CA", c)
+	// 			// }
+
+	// 			broken = true
+	// 			break
+	// 		}
+	// 	}
+	// 	if broken == true {
+	// 		break
+	// 	}
+	// }
+
 	log.Print(configArray)
 
 	return err
@@ -201,6 +748,25 @@ func Reduce(cvg ConfigVehicleGroup) error {
 
 func removeDuplicatesFromIntArray(a []int) []int {
 	var output []int
+	for i, num := range a {
+		var addit bool = true
+		if i == 0 {
+			output = append(output, num)
+		}
+		for _, o := range output {
+			if o == num {
+				addit = false
+			}
+		}
+		if addit == true {
+			output = append(output, num)
+		}
+	}
+	return output
+}
+
+func removeDuplicatesFromStringArray(a []string) []string {
+	var output []string
 	for i, num := range a {
 		var addit bool = true
 		if i == 0 {
