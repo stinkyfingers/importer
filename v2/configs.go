@@ -162,7 +162,7 @@ func CgArray(cgs []ConfigVehicleRaw) []ConfigVehicleGroup {
 // }
 // }
 
-var newCvgs, newCvgs3, newCvgsDriveType, newCvgsBodyNumDoors, newCvgsEngineVin, newCvgsBodyType, newCvgsAcesLiter, newCvgsAcesCC, newCvgsAcesCid, newCvgsAcesBlock, newCvgsPower []ConfigVehicleGroup
+var newCvgs, newCvgs3, newCvgsDriveType, newCvgsBodyNumDoors, newCvgsEngineVin, newCvgsBodyType, newCvgsAcesLiter, newCvgsAcesCC, newCvgsAcesCid, newCvgsAcesBlock, newCvgsPower, newCvgsFuelDelConfig, newCvgsBodyStyle, newCvgValves, newCvgsCylHeadType, newCvgsEngineBase, newCvgsEngineConfig []ConfigVehicleGroup
 
 func Reduce2(cvg ConfigVehicleGroup) error {
 	var err error
@@ -330,6 +330,10 @@ func ReduceBodyNumDoors() error {
 			newCvgsBodyNumDoors = append(newCvgsBodyNumDoors, cvg)
 		}
 	}
+	// log.Print(len(newCvgsBodyNumDoors), "\n\n")
+	// for _, r := range newCvgsBodyNumDoors {
+	// 	log.Print(r, "\n\n")
+	// }
 
 	return err
 }
@@ -372,6 +376,10 @@ func ReduceEngineVin() error {
 			newCvgsEngineVin = append(newCvgsEngineVin, cvg)
 		}
 	}
+	// log.Print(len(newCvgsEngineVin), "\n\n")
+	// for _, r := range newCvgsEngineVin {
+	// 	log.Print(r, "\n\n")
+	// }
 
 	return err
 }
@@ -414,11 +422,10 @@ func ReduceBodyType() error {
 			newCvgsBodyType = append(newCvgsBodyType, cvg)
 		}
 	}
-	//DO IT LIKE 15 more times....then process the configs
-	log.Print(len(newCvgsBodyType), "\n\n")
-	for _, r := range newCvgsBodyType {
-		log.Print(r, "\n\n")
-	}
+	// log.Print(len(newCvgsBodyType), "\n\n")
+	// for _, r := range newCvgsBodyType {
+	// 	log.Print(r, "\n\n")
+	// }
 	return err
 }
 
@@ -460,11 +467,7 @@ func ReduceAcesLiter() error {
 			newCvgsAcesLiter = append(newCvgsAcesLiter, cvg)
 		}
 	}
-	//DO IT LIKE 15 more times....then process the configs
-	log.Print(len(newCvgsAcesLiter), "\n\n")
-	for _, r := range newCvgsAcesLiter {
-		log.Print(r, "\n\n")
-	}
+
 	return err
 }
 
@@ -506,11 +509,7 @@ func ReduceAcesCC() error {
 			newCvgsAcesCC = append(newCvgsAcesCC, cvg)
 		}
 	}
-	//DO IT LIKE 15 more times....then process the configs
-	log.Print(len(newCvgsAcesCC), "\n\n")
-	for _, r := range newCvgsAcesCC {
-		log.Print(r, "\n\n")
-	}
+
 	return err
 }
 
@@ -546,17 +545,18 @@ func ReduceAcesCid() error {
 				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
 				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 306) // 6 - Aces Liter - special case
 
-				newCvgsAcesCC = append(newCvgsAcesCC, tempCvg)
+				newCvgsAcesCid = append(newCvgsAcesCid, tempCvg)
 			}
 		} else {
-			newCvgsAcesCC = append(newCvgsAcesCC, cvg)
+			newCvgsAcesCid = append(newCvgsAcesCid, cvg)
 		}
 	}
 	//DO IT LIKE 15 more times....then process the configs
-	log.Print(len(newCvgsAcesCC), "\n\n")
-	for _, r := range newCvgsAcesCC {
-		log.Print(r, "\n\n")
-	}
+	// log.Print(len(newCvgsAcesCid), "\n\n")
+	// for _, r := range newCvgsAcesCid {
+	// 	log.Print(r, "\n\n")
+	// }
+
 	return err
 }
 
@@ -590,7 +590,7 @@ func ReduceAcesBlock() error {
 					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
 				}
 				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
-				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 306) // 6 - Aces Liter - special case
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 999) // HELP
 
 				newCvgsAcesBlock = append(newCvgsAcesBlock, tempCvg)
 			}
@@ -598,11 +598,7 @@ func ReduceAcesBlock() error {
 			newCvgsAcesBlock = append(newCvgsAcesBlock, cvg)
 		}
 	}
-	//DO IT LIKE 15 more times....then process the configs
-	log.Print(len(newCvgsAcesBlock), "\n\n")
-	for _, r := range newCvgsAcesBlock {
-		log.Print(r, "\n\n")
-	}
+
 	return err
 }
 
@@ -635,8 +631,8 @@ func ReducePowerOutput() error {
 				for _, mm := range m {
 					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
 				}
-				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
-				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 306) // 6 - Aces Liter - special case
+				tempCvg.DiffConfigs = cvg.DiffConfigs                 //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 25) // 6 - Aces Liter - special case
 
 				newCvgsPower = append(newCvgsPower, tempCvg)
 			}
@@ -644,9 +640,261 @@ func ReducePowerOutput() error {
 			newCvgsPower = append(newCvgsPower, cvg)
 		}
 	}
+
+	return err
+}
+
+func ReduceFuelDelConfig() error {
+	var err error
+
+	for _, cvg := range newCvgsPower {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.FuelDelConfigID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.FuelDelConfigID] = append(mmm[c.FuelDelConfigID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 20)
+
+				newCvgsFuelDelConfig = append(newCvgsFuelDelConfig, tempCvg)
+			}
+		} else {
+			newCvgsFuelDelConfig = append(newCvgsFuelDelConfig, cvg)
+		}
+	}
+
+	return err
+}
+
+func ReduceBodyStyle() error {
+	var err error
+
+	for _, cvg := range newCvgsFuelDelConfig {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.BodyStyleConfigID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.BodyStyleConfigID] = append(mmm[c.BodyStyleConfigID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 999) // HELP
+
+				newCvgsBodyStyle = append(newCvgsBodyStyle, tempCvg)
+			}
+		} else {
+			newCvgsBodyStyle = append(newCvgsBodyStyle, cvg)
+		}
+	}
+
+	return err
+}
+
+func ReduceValves() error {
+	var err error
+
+	for _, cvg := range newCvgsBodyStyle {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.ValvesID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.ValvesID] = append(mmm[c.ValvesID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                 //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 40) // HELP
+
+				newCvgValves = append(newCvgValves, tempCvg)
+			}
+		} else {
+			newCvgValves = append(newCvgValves, cvg)
+		}
+	}
+
+	return err
+}
+
+func ReduceCylHead() error {
+	var err error
+
+	for _, cvg := range newCvgValves {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.CylHeadTypeID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint8][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.CylHeadTypeID] = append(mmm[c.CylHeadTypeID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                 //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 12) // HELP
+
+				newCvgsCylHeadType = append(newCvgsCylHeadType, tempCvg)
+			}
+		} else {
+			newCvgsCylHeadType = append(newCvgsCylHeadType, cvg)
+		}
+	}
+
+	return err
+}
+
+func ReduceEngineBase() error {
+	var err error
+
+	for _, cvg := range newCvgsCylHeadType {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.EngineBaseID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint16][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.EngineBaseID] = append(mmm[c.EngineBaseID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                 //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 15) // HELP
+
+				newCvgsEngineBase = append(newCvgsEngineBase, tempCvg)
+			}
+		} else {
+			newCvgsEngineBase = append(newCvgsEngineBase, cvg)
+		}
+	}
+
+	return err
+}
+
+func ReduceEngineConfig() error {
+	var err error
+
+	for _, cvg := range newCvgsEngineBase {
+		//loop through fields
+		var ftype []int
+		for _, c := range cvg.ConfigVehicles {
+			//fuel type
+			ftype = append(ftype, int(c.EngineConfigID))
+		}
+		ftype = removeDuplicatesFromIntArray(ftype)
+
+		//FUEL TYPE
+		if len(ftype) > 1 {
+			mmm := make(map[uint16][]ConfigVehicleRaw)
+
+			for _, c := range cvg.ConfigVehicles {
+				// log.Print(c, mmm)
+				mmm[c.EngineConfigID] = append(mmm[c.EngineConfigID], c)
+			}
+			// log.Print(mmm)
+			for _, m := range mmm {
+				var tempCvg ConfigVehicleGroup
+				tempCvg.BaseID = cvg.BaseID
+				tempCvg.SubID = cvg.SubID
+				tempCvg.VehicleID = cvg.VehicleID
+				for _, mm := range m {
+					tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+				}
+				tempCvg.DiffConfigs = cvg.DiffConfigs                //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 7) // HELP
+
+				newCvgsEngineConfig = append(newCvgsEngineConfig, tempCvg)
+			}
+		} else {
+			newCvgsEngineConfig = append(newCvgsEngineConfig, cvg)
+		}
+	}
 	//DO IT LIKE 15 more times....then process the configs
-	log.Print(len(newCvgsPower), "\n\n")
-	for _, r := range newCvgsPower {
+	log.Print(len(newCvgsEngineConfig), "\n\n")
+	for _, r := range newCvgsEngineConfig {
 		log.Print(r, "\n\n")
 	}
 	return err
@@ -674,8 +922,17 @@ func NewAuditConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	err = ReduceEngineVin()
 	err = ReduceBodyType()
 	err = ReduceAcesLiter()
-	err = ReduceAcesCid()
+
 	err = ReduceAcesCC()
+	err = ReduceAcesCid()
+	err = ReduceAcesBlock()
+	err = ReducePowerOutput()
+	err = ReduceFuelDelConfig()
+	err = ReduceBodyStyle()
+	err = ReduceValves()
+	err = ReduceCylHead()
+	err = ReduceEngineBase()
+	err = ReduceEngineConfig()
 
 	return err
 }
