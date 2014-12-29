@@ -192,20 +192,10 @@ func ReduceConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	if err != nil {
 		return err
 	}
-	// err = ReduceAcesLiter()
-
-	// err = ReduceAcesCC()
-	// err = ReduceAcesCid()
-	// err = ReduceAcesBlock()
 	err = ReducePowerOutput()
 	if err != nil {
 		return err
 	}
-	// err = ReduceFuelDelConfig()
-	// if err != nil {
-	// 	return err
-	// }
-	// err = ReduceBodyStyle()
 	err = ReduceValves()
 	if err != nil {
 		return err
@@ -214,14 +204,27 @@ func ReduceConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	if err != nil {
 		return err
 	}
-	// err = ReduceEngineBase()
-	// if err != nil {
-	// 	return err
-	// }
-	// err = ReduceEngineConfig()
-	// if err != nil {
-	// 	return err
-	// }
+	err = ReduceEngineBase()
+	if err != nil {
+		return err
+	}
+
+	// err = ReduceAcesLiter()//SKIP - Redundant w/ EngineBase
+	// err = ReduceAcesBlock()//SKIP - Redundant w/ EngineBase
+	// err = ReduceBodyStyle() //SKIP - Redundant w/ Body Type + Num Doors
+
+	err = ReduceFuelDelConfig()
+	if err != nil {
+		return err
+	}
+
+	err = ReduceEngineConfig()
+	if err != nil {
+		return err
+	}
+
+	// err = ReduceAcesCC()
+	// err = ReduceAcesCid()
 
 	log.Print("LENGTH:", len(newCvgs), "\n\n")
 	// for _, r := range newCvgs {
@@ -523,7 +526,6 @@ func ReduceBodyNumDoors() error {
 		}
 	}
 	newCvgs = cvgsArray
-	log.Print("OUT")
 	return err
 }
 
@@ -1039,6 +1041,7 @@ func ReducePowerOutput() error {
 	return err
 }
 
+//Unique - Crosses 4 Curt Configs w/ one Aces ID
 func ReduceFuelDelConfig() error {
 	var err error
 	var cvgsArray []ConfigVehicleGroup
@@ -1067,24 +1070,42 @@ func ReduceFuelDelConfig() error {
 				tempCvg.SubID = cvg.SubID
 				tempCvg.VehicleID = cvg.VehicleID
 				for _, mm := range m {
-					//GetCurtTypeId
-					curtConfigTypeId := configAttributeTypeMap[20]
-					if curtConfigTypeId == 0 {
-						log.Print("Missing Type: FuelDelConfigID")
-						//TODO CREATE  configType
-						log.Panic("Missing type")
+					//get fuel subtype and design ids
+					var err error
+					db, err := sql.Open("mysql", database.VcdbConnectionString())
+					if err != nil {
+						return err
 					}
-					// log.Print("Config TYPE ", curtConfigTypeId)
+					defer db.Close()
+
+					stmt, err := db.Prepare("select FuelDeliveryTypeID, FuelDeliverySubTypeID, FuelSystemControlTypeID, FuelSystemDesignID from FuelDeliveryConfig where FuelDeliveryConfigID = ?")
+					if err != nil {
+						return err
+					}
+					defer stmt.Close()
+					var fdt, fdst, fsct, fsd int
+					err = stmt.QueryRow(mm.FuelDelConfigID).Scan(&fdt, &fdst, &fsct, &fsd)
+					if err != nil {
+						return err
+					}
+
+					//Get several CurtType Ids
+					curtConfigTypeIdSubType := configAttributeTypeMap[19]
+					curtConfigTypeIdType := configAttributeTypeMap[20]
+					curtConfigTypeIdControl := configAttributeTypeMap[21]
+					curtConfigTypeIdDesign := configAttributeTypeMap[22]
+
 					if mm.FuelDelConfigID > 0 {
-						curtConfigId, err := getCurtConfigValue(curtConfigTypeId, int(mm.FuelDelConfigID))
+						//SubType
+						curtConfigId, err := getCurtConfigValue(curtConfigTypeIdSubType, fdt)
 						if err != nil {
 							if err == sql.ErrNoRows {
 								err = nil
-								AcesValue, err := getAcesConfigurationValueName(20, int(mm.FuelDelConfigID))
+								AcesValue, err := getAcesConfigurationValueName(19, fdt)
 								if err != nil {
 									return err
 								}
-								curtConfigId, err = createCurtConfigValue(curtConfigTypeId, int(mm.FuelDelConfigID), AcesValue)
+								curtConfigId, err = createCurtConfigValue(curtConfigTypeIdSubType, fdt, AcesValue)
 								if err != nil {
 									return err
 								}
@@ -1092,14 +1113,74 @@ func ReduceFuelDelConfig() error {
 								return err
 							}
 						}
-
-						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+
+						//Type
+						curtConfigId, err = getCurtConfigValue(curtConfigTypeIdType, fdst)
+						if err != nil {
+							if err == sql.ErrNoRows {
+								err = nil
+								AcesValue, err := getAcesConfigurationValueName(20, fdst)
+								if err != nil {
+									return err
+								}
+								curtConfigId, err = createCurtConfigValue(curtConfigTypeIdType, fdst, AcesValue)
+								if err != nil {
+									return err
+								}
+							} else {
+								return err
+							}
+						}
+						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+
+						//Control
+						curtConfigId, err = getCurtConfigValue(curtConfigTypeIdControl, fsct)
+						if err != nil {
+							if err == sql.ErrNoRows {
+								err = nil
+								AcesValue, err := getAcesConfigurationValueName(21, fsct)
+								if err != nil {
+									return err
+								}
+								curtConfigId, err = createCurtConfigValue(curtConfigTypeIdControl, fsct, AcesValue)
+								if err != nil {
+									return err
+								}
+							} else {
+								return err
+							}
+						}
+						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+
+						//Design
+						curtConfigId, err = getCurtConfigValue(curtConfigTypeIdDesign, fsd)
+						if err != nil {
+							if err == sql.ErrNoRows {
+								err = nil
+								AcesValue, err := getAcesConfigurationValueName(22, fsd)
+								if err != nil {
+									return err
+								}
+								curtConfigId, err = createCurtConfigValue(curtConfigTypeIdDesign, fsd, AcesValue)
+								if err != nil {
+									return err
+								}
+							} else {
+								return err
+							}
+						}
+						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+
+						//append all these configs
 						tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
 					}
 				}
 				tempCvg.DiffConfigs = cvg.DiffConfigs //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 19)
 				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 20)
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 21)
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 22)
 
 				cvgsArray = append(cvgsArray, tempCvg)
 			}
@@ -1357,7 +1438,7 @@ func ReduceEngineBase() error {
 				tempCvg.VehicleID = cvg.VehicleID
 				for _, mm := range m {
 					//GetCurtTypeId
-					curtConfigTypeId := configAttributeTypeMap[15]
+					curtConfigTypeId := configAttributeTypeMap[7]
 					if curtConfigTypeId == 0 {
 						log.Print("Missing Type: EngineBaseID")
 						//TODO CREATE  configType
@@ -1369,7 +1450,7 @@ func ReduceEngineBase() error {
 						if err != nil {
 							if err == sql.ErrNoRows {
 								err = nil
-								AcesValue, err := getAcesConfigurationValueName(15, int(mm.EngineBaseID))
+								AcesValue, err := getAcesConfigurationValueName(7, int(mm.EngineBaseID))
 								if err != nil {
 									return err
 								}
@@ -1386,8 +1467,8 @@ func ReduceEngineBase() error {
 						tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
 					}
 				}
-				tempCvg.DiffConfigs = cvg.DiffConfigs                 //previous diffCOnfigs
-				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 15) // HELP
+				tempCvg.DiffConfigs = cvg.DiffConfigs //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 7)
 
 				cvgsArray = append(cvgsArray, tempCvg)
 			}
@@ -1428,24 +1509,49 @@ func ReduceEngineConfig() error {
 				tempCvg.SubID = cvg.SubID
 				tempCvg.VehicleID = cvg.VehicleID
 				for _, mm := range m {
-					//GetCurtTypeId
-					curtConfigTypeId := configAttributeTypeMap[7]
-					if curtConfigTypeId == 0 {
-						log.Print("Missing Type: EngineConfig")
-						//TODO CREATE  configType
-						log.Panic("Missing type")
-					}
+					//GetCurtTypeIds
+					curtConfigTypeIdDesignation := configAttributeTypeMap[13]
+					curtConfigTypeIdIgnitionSystem := configAttributeTypeMap[23]
+					curtConfigTypeIdMfr := configAttributeTypeMap[14]
+					curtConfigTypeIdVersion := configAttributeTypeMap[15]
+
+					// curtConfigTypeId := configAttributeTypeMap[7]
+					// if curtConfigTypeId == 0 {
+					// 	log.Print("Missing Type: EngineConfig")
+					// 	//TODO CREATE  configType
+					// 	log.Panic("Missing type")
+					// }
 					// log.Print("Config TYPE ", curtConfigTypeId)
 					if mm.EngineConfigID > 0 {
-						curtConfigId, err := getCurtConfigValue(curtConfigTypeId, int(mm.EngineConfigID))
+
+						var err error
+						db, err := sql.Open("mysql", database.VcdbConnectionString())
+						if err != nil {
+							return err
+						}
+						defer db.Close()
+
+						stmt, err := db.Prepare("select EngineDesignationID, IgnitionSystemTypeID, EngineMfrID, EngineVersionID from EngineConfig where EngineConfigID = ?")
+						if err != nil {
+							return err
+						}
+						defer stmt.Close()
+						var des, ignit, mfr, version int
+						err = stmt.QueryRow(mm.EngineConfigID).Scan(&des, &ignit, &mfr, &version)
+						if err != nil {
+							return err
+						}
+
+						//Designation
+						curtConfigId, err := getCurtConfigValue(curtConfigTypeIdDesignation, des)
 						if err != nil {
 							if err == sql.ErrNoRows {
 								err = nil
-								AcesValue, err := getAcesConfigurationValueName(7, int(mm.EngineConfigID))
+								AcesValue, err := getAcesConfigurationValueName(13, des)
 								if err != nil {
 									return err
 								}
-								curtConfigId, err = createCurtConfigValue(curtConfigTypeId, int(mm.EngineConfigID), AcesValue)
+								curtConfigId, err = createCurtConfigValue(curtConfigTypeIdDesignation, des, AcesValue)
 								if err != nil {
 									return err
 								}
@@ -1453,14 +1559,75 @@ func ReduceEngineConfig() error {
 								return err
 							}
 						}
-						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+
+						//Ignition
+						curtConfigId, err = getCurtConfigValue(curtConfigTypeIdIgnitionSystem, ignit)
+						if err != nil {
+							if err == sql.ErrNoRows {
+								err = nil
+								AcesValue, err := getAcesConfigurationValueName(23, ignit)
+								if err != nil {
+									return err
+								}
+								curtConfigId, err = createCurtConfigValue(curtConfigTypeIdIgnitionSystem, ignit, AcesValue)
+								if err != nil {
+									return err
+								}
+							} else {
+								return err
+							}
+						}
+						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+
+						//Mfr
+						curtConfigId, err = getCurtConfigValue(curtConfigTypeIdMfr, mfr)
+						if err != nil {
+							if err == sql.ErrNoRows {
+								err = nil
+								AcesValue, err := getAcesConfigurationValueName(14, mfr)
+								if err != nil {
+									return err
+								}
+								curtConfigId, err = createCurtConfigValue(curtConfigTypeIdMfr, mfr, AcesValue)
+								if err != nil {
+									return err
+								}
+							} else {
+								return err
+							}
+						}
+						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+
+						//Version
+						curtConfigId, err = getCurtConfigValue(curtConfigTypeIdVersion, version)
+						if err != nil {
+							if err == sql.ErrNoRows {
+								err = nil
+								AcesValue, err := getAcesConfigurationValueName(15, version)
+								if err != nil {
+									return err
+								}
+								curtConfigId, err = createCurtConfigValue(curtConfigTypeIdVersion, version, AcesValue)
+								if err != nil {
+									return err
+								}
+							} else {
+								return err
+							}
+						}
+						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+
+						//append to vehicleConfig array
 						tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
 					}
 				}
 
-				tempCvg.DiffConfigs = cvg.DiffConfigs                //previous diffCOnfigs
-				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 7) // HELP
+				tempCvg.DiffConfigs = cvg.DiffConfigs //previous diffCOnfigs
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 13)
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 14)
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 15)
+				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 23)
 
 				cvgsArray = append(cvgsArray, tempCvg)
 			}
@@ -1842,7 +2009,7 @@ func getAcesConfigurationValueName(aaiaConfigTypeID, aaiaConfigValueID int) (str
 	case aaiaConfigTypeID == 7:
 		table = "EngineBase"
 		idField = table + "ID"
-		valueField = "Liter"
+		valueField = "CONCAT(Liter, ' Liter ', BlockType,'-',Cylinders)"
 	case aaiaConfigTypeID == 8:
 		table = "Aspiration"
 		idField = table + "ID"
