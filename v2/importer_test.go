@@ -44,7 +44,7 @@ func TestImporter(t *testing.T) {
 		// err = DiffSubmodels(submodelCollection)
 		// So(err, ShouldBeNil)
 
-		err = DiffConfigs("ariesConfigTest") //usually ariesConfigs -
+		err = DiffConfigsRedux("ariesConfigs") //usually ariesConfigs -
 		So(err, ShouldBeNil)
 
 		// err = setMaxConnections(151)

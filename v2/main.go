@@ -3,6 +3,7 @@ package v2
 import (
 	"database/sql"
 	"github.com/curt-labs/polkImporter/helpers/database"
+	"github.com/curt-labs/polkImporter/v2/configs"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"strconv"
@@ -59,6 +60,38 @@ func DiffConfigs(dbCollection string) error {
 	if err != nil {
 		return err
 	}
+
+	err = ProcessReducedConfigs()
+	if err != nil {
+		return err
+	}
+
+	// err = AuditConfigs(cons)
+	// if err != nil {
+	// 	return err
+	// }
+	return err
+}
+
+func DiffConfigsRedux(dbCollection string) error {
+	craws, err := configs.MongoToConfigurations(dbCollection)
+	if err != nil {
+		return err
+	}
+	log.Print("Total individual records to check (using configDiff): ", len(craws))
+
+	cons := configs.ConfigArray(craws)
+	log.Print("Number of Vehicles' Configs to audit: ", len(cons))
+
+	err = configs.ReduceConfigs(cons)
+	if err != nil {
+		return err
+	}
+
+	// err = ProcessReducedConfigs()
+	// if err != nil {
+	// 	return err
+	// }
 
 	// err = AuditConfigs(cons)
 	// if err != nil {
