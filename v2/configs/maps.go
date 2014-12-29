@@ -221,6 +221,15 @@ func createInsertStatementsFile(title string) (*os.File, int64, error) {
 	return f, off, err
 }
 
+func createConfigErrorFile(title string) (*os.File, error) {
+	configErrorFile, err := os.Create("exports/" + title + ".txt")
+	if err != nil {
+		return configErrorFile, err
+	}
+
+	return configErrorFile, err
+}
+
 func getPartMap() (map[string]int, error) {
 	var err error
 	partMap := make(map[string]int)

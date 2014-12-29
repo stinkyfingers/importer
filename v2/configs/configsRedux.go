@@ -61,6 +61,7 @@ var newCvgs []ConfigVehicleGroup //static var
 var configPartNeededOffset int64 = 0
 var processedConfigVehicles int = 0
 var insertQueriesOffset int64 = 0
+var configErrorOffset int64 = 0
 var (
 	configMapStmt = `select ca.ConfigAttributeTypeID, cat.AcesTypeID, ca.vcdbID, ca.ID 
 			from CurtDev.ConfigAttribute as ca 
@@ -98,8 +99,9 @@ var (
 		where b.ID = ?
 		and s.ID = ?
 		and (v.ConfigID is null or v.ConfigID = 0)`
-	findPartStmt      = "select VehicleID from vcdb_VehiclePart where VehicleID = ? and PartNumber = (select p.partID from Part as p where p.oldPartNumber = ? limit 1)"
-	vehicleInsertStmt = `insert into vcdb_Vehicle (BaseVehicleID, SubModelID, ConfigID, AppID) values (?,?,?,0)`
+	findPartStmt              = "select VehicleID from vcdb_VehiclePart where VehicleID = ? and PartNumber = (select p.partID from Part as p where p.oldPartNumber = ? limit 1)"
+	vehicleInsertStmt         = `insert into vcdb_Vehicle (BaseVehicleID, SubModelID, ConfigID, AppID) values (?,?,?,0)`
+	submodelVehicleInsertStmt = `insert into vcdb_Vehicle (BaseVehicleID, SubModelID, ConfigID, AppID) values (?,?,NULL,0)`
 )
 
 var acesTypeCurtTypeMap map[int]int
@@ -111,6 +113,7 @@ var subMap map[int]int
 var partMap map[string]int
 var missingPartNumbers *os.File
 var insertVehiclePartQueries *os.File
+var configErrorFile *os.File
 var initConfigMaps sync.Once
 var vehicleOldPartArray []string
 var submodelVehicleMap map[string]int
@@ -155,7 +158,10 @@ func initConfigMap() {
 	if err != nil {
 		log.Print(err)
 	}
-
+	configErrorFile, err = createConfigErrorFile("ConfigErrorFile")
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 //For all mongodb entries, returns ConfigVehicleRaws
@@ -172,6 +178,24 @@ func MongoToConfigurations(dbCollection string) ([]ConfigVehicleRaw, error) {
 
 	//write to csv raw vehicles
 	err = collection.Find(nil).All(&cgs)
+
+	return cgs, err
+}
+
+//process things in batches
+func MongoToConfigurationsBatch(dbCollection string, limit, skip int) ([]ConfigVehicleRaw, error) {
+	var err error
+	var cgs []ConfigVehicleRaw
+
+	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
+	if err != nil {
+		return cgs, err
+	}
+	defer session.Close()
+	collection := session.DB("importer").C(dbCollection)
+
+	//write to csv raw vehicles
+	err = collection.Find(nil).Sort("$natural").Skip(skip).Limit(limit).All(&cgs)
 
 	return cgs, err
 }
@@ -294,6 +318,12 @@ func ReduceConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		}
 	}
 
+	err = ProcessReducedConfigs(newCvgs)
+	return err
+}
+func ProcessReducedConfigs(newCvgs []ConfigVehicleGroup) error {
+	var err error
+
 	//all good above? Begin checking/writing vehicles/vehicleConfigs and checking/writing vehicleparts
 	for _, cvg := range newCvgs {
 		// log.Print(cvg)
@@ -327,7 +357,17 @@ func Process(cvg []ConfigVehicleRaw) error {
 			//create base
 			cBaseID, err = InsertBaseVehicle(raw.BaseID)
 			if err != nil {
-				return err
+				if err == sql.ErrNoRows {
+					b := []byte("Missing Base Vehicle: " + strconv.Itoa(cBaseID))
+					n, err := configErrorFile.WriteAt(b, configErrorOffset)
+					if err != nil {
+						return err
+					}
+					configErrorOffset += int64(n)
+					return nil //exit without processing vehicle
+				} else {
+					return err
+				}
 			}
 		}
 		cSubmodelID := subMap[raw.SubmodelID]
@@ -376,12 +416,12 @@ func FindSubmodelWithParts(cBaseID int, cSubmodelID int, partNumber string, conf
 		log.Print("Submodel not found")
 
 		//create vehicle
-		stmt, err := db.Prepare(vehicleInsertStmt)
+		stmt, err := db.Prepare(submodelVehicleInsertStmt)
 		if err != nil {
 			return err
 		}
 		defer stmt.Close()
-		res, err := stmt.Exec(cBaseID, cSubmodelID, nil)
+		res, err := stmt.Exec(cBaseID, cSubmodelID)
 		if err != nil {
 			return err
 		}
@@ -622,15 +662,17 @@ func InsertBaseVehicle(aaiaBaseId int) (int, error) {
 	}
 	err = stmt.QueryRow(b.Model).Scan(&modelId)
 	if err != nil {
+		log.Print("Missing Model in Model table", b.Model)
 		return cBaseId, err
 	}
 
-	stmt, err = db.Prepare("select ID from vcdb_Make where AAIAMakelID = ?")
+	stmt, err = db.Prepare("select ID from vcdb_Make where AAIAMakeID = ?")
 	if err != nil {
 		return cBaseId, err
 	}
 	err = stmt.QueryRow(b.Make).Scan(&makeId)
 	if err != nil {
+		log.Print("Missing Make in make table", b.Make)
 		return cBaseId, err
 	}
 
@@ -1582,6 +1624,7 @@ func ReduceFuelDelConfig() error {
 					var fdt, fdst, fsct, fsd int
 					err = stmt.QueryRow(mm.FuelDelConfigID).Scan(&fdt, &fdst, &fsct, &fsd)
 					if err != nil {
+						log.Print("Err finding fuel del configID")
 						return err
 					}
 

@@ -9,6 +9,40 @@ import (
 	"strconv"
 )
 
+func Run() error {
+	var err error
+	file := "/Users/macuser/Desktop/Polk/Aries_Offroad_Coverage_US_201410.csv"
+
+	dbCollection := "aries"
+	submodelCollection := "ariesSubs"
+	configCollection := "ariesConfigs"
+	err = CaptureCsv(file, 1, dbCollection)
+	if err != nil {
+		return err
+	}
+	err = DiffBaseVehicles(dbCollection)
+	if err != nil {
+		return err
+	}
+	err = CaptureCsv("exports/VehiclesToDiffBySubmodel.csv", 0, submodelCollection)
+	if err != nil {
+		return err
+	}
+	err = DiffSubmodels(submodelCollection)
+	if err != nil {
+		return err
+	}
+	err = CaptureCsv("exports/VehiclesToDiffByConfig.csv", 0, configCollection)
+	if err != nil {
+		return err
+	}
+	err = DiffConfigsRedux(configCollection, 0, 0)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
 func DiffBaseVehicles(dbCollection string) error {
 	bvs, err := MongoToBase(dbCollection)
 	if err != nil {
@@ -73,8 +107,8 @@ func DiffConfigs(dbCollection string) error {
 	return err
 }
 
-func DiffConfigsRedux(dbCollection string) error {
-	craws, err := configs.MongoToConfigurations(dbCollection)
+func DiffConfigsRedux(dbCollection string, limit, skip int) error {
+	craws, err := configs.MongoToConfigurationsBatch(dbCollection, limit, skip)
 	if err != nil {
 		return err
 	}
@@ -88,15 +122,6 @@ func DiffConfigsRedux(dbCollection string) error {
 		return err
 	}
 
-	// err = ProcessReducedConfigs()
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = AuditConfigs(cons)
-	// if err != nil {
-	// 	return err
-	// }
 	return err
 }
 
