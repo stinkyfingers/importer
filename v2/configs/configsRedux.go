@@ -65,6 +65,8 @@ type ConfigVehicleGroup struct {
 // 					}
 // 					log.Print("CurtTypeID", AcesValueId)
 
+var newCvgs []ConfigVehicleGroup //static var
+
 var (
 	configMapStmt = `select ca.ConfigAttributeTypeID, cat.AcesTypeID, ca.vcdbID, ca.ID 
 			from CurtDev.ConfigAttribute as ca 
@@ -155,7 +157,81 @@ func ConfigArray(cgs []ConfigVehicleRaw) []ConfigVehicleGroup {
 	return configVehicles
 }
 
-var newCvgs []ConfigVehicleGroup //static var
+//NEW
+// foreach VehicleID's array of configs:
+// for each config compile array of unique config values
+// get length of each
+//split into x groups of vehicles for lowest number of array values x, that is greater than 1
+//repeat for each subgroup until there is only arrays of 1 unique config value
+
+func ReduceConfigs(configVehicleGroups []ConfigVehicleGroup) error {
+	var err error
+	newCvgs = configVehicleGroups
+
+	err = ReduceFuelType()
+	if err != nil {
+		return err
+	}
+	err = ReduceFuelDelivery()
+	if err != nil {
+		return err
+	}
+	err = ReduceDriveType()
+	if err != nil {
+		return err
+	}
+	err = ReduceBodyNumDoors()
+	if err != nil {
+		return err
+	}
+	err = ReduceEngineVin()
+	if err != nil {
+		return err
+	}
+	err = ReduceBodyType()
+	if err != nil {
+		return err
+	}
+	// err = ReduceAcesLiter()
+
+	// err = ReduceAcesCC()
+	// err = ReduceAcesCid()
+	// err = ReduceAcesBlock()
+	err = ReducePowerOutput()
+	if err != nil {
+		return err
+	}
+	// err = ReduceFuelDelConfig()
+	// if err != nil {
+	// 	return err
+	// }
+	// err = ReduceBodyStyle()
+	err = ReduceValves()
+	if err != nil {
+		return err
+	}
+	err = ReduceCylHead()
+	if err != nil {
+		return err
+	}
+	// err = ReduceEngineBase()
+	// if err != nil {
+	// 	return err
+	// }
+	// err = ReduceEngineConfig()
+	// if err != nil {
+	// 	return err
+	// }
+
+	log.Print("LENGTH:", len(newCvgs), "\n\n")
+	// for _, r := range newCvgs {
+	// 	log.Print(r, "\n\n")
+	// }
+
+	//all good above? Begin checking/writing vehicles/vehicleConfigs and checking/writing vehicleparts
+
+	return err
+}
 
 func ReduceFuelType() error {
 	var err error
@@ -213,8 +289,9 @@ func ReduceFuelType() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -284,8 +361,9 @@ func ReduceFuelDelivery() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -354,8 +432,9 @@ func ReduceDriveType() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -373,11 +452,6 @@ func ReduceDriveType() error {
 	}
 	newCvgs = cvgsArray
 
-	//DO IT LIKE 15 more times....then process the configs
-	// log.Print(len(newCvgsDriveType), "\n\n")
-	// for _, r := range newCvgsDriveType {
-	// 	log.Print(r, "\n\n")
-	// }
 	return err
 }
 
@@ -430,8 +504,9 @@ func ReduceBodyNumDoors() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -448,7 +523,7 @@ func ReduceBodyNumDoors() error {
 		}
 	}
 	newCvgs = cvgsArray
-
+	log.Print("OUT")
 	return err
 }
 
@@ -483,12 +558,13 @@ func ReduceEngineVin() error {
 					//GetCurtTypeId
 					curtConfigTypeId := configAttributeTypeMap[16]
 					if curtConfigTypeId == 0 {
-						log.Print("Missing Type: FuelType")
+						log.Print("Missing Type: Vin")
 						//TODO CREATE  configType
 						log.Panic("Missing type")
 					}
 					// log.Print("Config TYPE ", curtConfigTypeId)
 					if mm.EngineVinID > 0 {
+						// log.Print(mm.EngineVinID)
 						curtConfigId, err := getCurtConfigValue(curtConfigTypeId, int(mm.EngineVinID))
 						if err != nil {
 							if err == sql.ErrNoRows {
@@ -501,10 +577,11 @@ func ReduceEngineVin() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
-						// log.Print("CURT CONFIG ", curtConfigId)
+
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
 						tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
 					}
@@ -517,12 +594,9 @@ func ReduceEngineVin() error {
 		} else {
 			cvgsArray = append(cvgsArray, cvg)
 		}
+
 	}
 	newCvgs = cvgsArray
-	// log.Print(len(newCvgsEngineVin), "\n\n")
-	// for _, r := range newCvgsEngineVin {
-	// 	log.Print(r, "\n\n")
-	// }
 
 	return err
 }
@@ -576,8 +650,9 @@ func ReduceBodyType() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -594,10 +669,7 @@ func ReduceBodyType() error {
 		}
 	}
 	newCvgs = cvgsArray
-	// log.Print(len(newCvgsBodyType), "\n\n")
-	// for _, r := range newCvgsBodyType {
-	// 	log.Print(r, "\n\n")
-	// }
+
 	return err
 }
 
@@ -650,8 +722,9 @@ func ReduceAcesLiter() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -721,8 +794,9 @@ func ReduceAcesCC() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -792,8 +866,9 @@ func ReduceAcesCid() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -810,11 +885,6 @@ func ReduceAcesCid() error {
 		}
 	}
 	newCvgs = cvgsArray
-	//DO IT LIKE 15 more times....then process the configs
-	// log.Print(len(newCvgsAcesCid), "\n\n")
-	// for _, r := range newCvgsAcesCid {
-	// 	log.Print(r, "\n\n")
-	// }
 
 	return err
 }
@@ -876,8 +946,9 @@ func ReduceAcesCid() error {
 // 							if err != nil {
 // 								return err
 // 							}
-// 						}
-// 						return err
+// 						} else {
+// 	return err
+// }
 // 					}
 // 					// log.Print("CURT CONFIG ", curtConfigId)
 // 					mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -945,8 +1016,9 @@ func ReducePowerOutput() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -1016,8 +1088,9 @@ func ReduceFuelDelConfig() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 
 						// log.Print("CURT CONFIG ", curtConfigId)
@@ -1089,8 +1162,9 @@ func ReduceBodyStyle() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -1159,8 +1233,9 @@ func ReduceValves() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -1230,8 +1305,9 @@ func ReduceCylHead() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -1301,8 +1377,9 @@ func ReduceEngineBase() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -1372,8 +1449,9 @@ func ReduceEngineConfig() error {
 								if err != nil {
 									return err
 								}
+							} else {
+								return err
 							}
-							return err
 						}
 						// log.Print("CURT CONFIG ", curtConfigId)
 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
@@ -1391,84 +1469,6 @@ func ReduceEngineConfig() error {
 		}
 	}
 	newCvgs = cvgsArray
-	//DO IT LIKE 15 more times....then process the configs
-	log.Print("LENGTH:", len(newCvgs), "\n\n")
-	for _, r := range newCvgs {
-		log.Print(r, "\n\n")
-	}
-	return err
-}
-
-//NEW
-// foreach VehicleID's array of configs:
-// for each config compile array of unique config values
-// get length of each
-//split into x groups of vehicles for lowest number of array values x, that is greater than 1
-//repeat for each subgroup until there is only arrays of 1 unique config value
-
-func ReduceConfigs(configVehicleGroups []ConfigVehicleGroup) error {
-	var err error
-	newCvgs = configVehicleGroups
-
-	err = ReduceFuelType()
-	if err != nil {
-		return err
-	}
-	err = ReduceFuelDelivery()
-	if err != nil {
-		return err
-	}
-	err = ReduceDriveType()
-	if err != nil {
-		return err
-	}
-	err = ReduceBodyNumDoors()
-	if err != nil {
-		return err
-	}
-	err = ReduceEngineVin()
-	if err != nil {
-		return err
-	}
-	err = ReduceBodyType()
-	if err != nil {
-		return err
-	}
-	// err = ReduceAcesLiter()
-
-	// err = ReduceAcesCC()
-	// err = ReduceAcesCid()
-	// err = ReduceAcesBlock()
-	err = ReducePowerOutput()
-	if err != nil {
-		return err
-	}
-	err = ReduceFuelDelConfig()
-	if err != nil {
-		return err
-	}
-	// err = ReduceBodyStyle()
-	err = ReduceValves()
-	if err != nil {
-		return err
-	}
-	err = ReduceCylHead()
-	if err != nil {
-		return err
-	}
-	err = ReduceEngineBase()
-	if err != nil {
-		return err
-	}
-	err = ReduceEngineConfig()
-	if err != nil {
-		return err
-	}
-
-	log.Print("LENGTH:", len(newCvgs), "\n\n")
-	for _, r := range newCvgs {
-		log.Print(r, "\n\n")
-	}
 
 	return err
 }
@@ -1992,46 +1992,6 @@ func getAcesConfigurationValueName(aaiaConfigTypeID, aaiaConfigValueID int) (str
 		}
 		return valueName, err
 	}
+	log.Print(valueName, err)
 	return valueName, err
 }
-
-// func AuditConfigsRedux(cvg ConfigVehicleGroup) error {
-// 	var err error
-// 	initConfigMaps.Do(initConfigMap)
-
-// 	//for each config type
-// 	//1. is there a Curt config type?
-// 	//N: Create curt type from vcdb
-// 	//2. is there a Curt config (value)?
-// 	//N. Create a Curt Value from vcdb
-// 	//3. Is there a Curt vehicle with these Configs?
-// 	//N: Create curt vehicle
-// 	//4. Is there a Curt PartID for this partnumber?
-// 	//N: log the missing part; break
-// 	//5. Is there a part join for the part associated with these configs?
-// 	//N: Create vcdb_VehiclePart join
-
-// 	//TODO
-// 	for _, c := range cvg.ConfigVehicles {
-// 		for _, diffTypeId := range cvg.DiffConfigs {
-// 			curtConfigType := configAttributeTypeMap[diffTypeId]
-// 			if curtConfigType == 0 {
-// 				//need curt config type
-// 			}
-
-// 			aaiaValue, err := getAaiaConfigValueFromTypeId(c, diffTypeId)
-// 			if err != nil {
-// 				//need aaia value
-// 				return err
-// 			}
-// 			//get curt configValueIds - or insert them
-// 			curtConfigValueId, err := checkCurtConfigValue(diffTypeId, curtConfigType, aaiaValue)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			log.Print(curtConfigValueId)
-
-// 		}
-// 	}
-
-// }
