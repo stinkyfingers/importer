@@ -11,6 +11,8 @@ import (
 var (
 	configAttributeTypeMapStmt = "select AcesTypeID, ID from ConfigAttributeType where AcesTypeID is not null and AcesTypeID > 0"
 	configAttributeMapStmt     = "select ID, ConfigAttributeTypeID, vcdbID from ConfigAttribute where vcdbID > 0 and vcdbID is not null"
+	baseMapStmt                = "select AAIABaseVehicleID, ID from BaseVehicle where AAIABaseVehicleID is not null and AAIABaseVehicleID > 0"
+	subMapStmt                 = "select AAIASubmodelID, ID from Submodel where AAIASubmodelID > 0 and AAIASubmodelID is not null"
 )
 
 func getConfigAttributeMap() (map[string]int, error) {
@@ -65,4 +67,58 @@ func getConfigAttriguteTypeMap() (map[int]int, error) {
 		aMap[a] = i
 	}
 	return aMap, err
+}
+
+func getBaseMap() (map[int]int, error) {
+	var err error
+	baseMap := make(map[int]int)
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return baseMap, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(baseMapStmt)
+	if err != nil {
+		return baseMap, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Query()
+	var o, p int
+	for res.Next() {
+		err = res.Scan(&o, &p)
+		if err != nil {
+			return baseMap, err
+		}
+		// if o > 0 {
+		baseMap[o] = p
+		// }
+	}
+	return baseMap, err
+}
+func getSubMap() (map[int]int, error) {
+	var err error
+	subMap := make(map[int]int)
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return subMap, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(subMapStmt)
+	if err != nil {
+		return subMap, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Query()
+	var p int
+	var o int
+	for res.Next() {
+		err = res.Scan(&o, &p)
+		if err != nil {
+			return subMap, err
+		}
+		subMap[o] = p
+	}
+	return subMap, err
 }

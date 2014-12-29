@@ -6,10 +6,10 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
 
-	// "gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/bson"
 
 	"database/sql"
-	// "errors"
+	"errors"
 	"log"
 	// "os"
 	// "reflect"
@@ -88,12 +88,24 @@ var (
 	insertCurtConfigTypeStmt = `insert into ConfigAttributeType(name, AcesTypeID, sort) values (?,?,?)`
 	insertCurtConfigStmt     = `insert into ConfigAttribute(ConfigAttributeTypeID, parentID, vcdbID, value) values(?,0,?,?)`
 	getCurtConfigValueIdStmt = `select ID from ConfigAttribute where ConfigAttributeTypeID = ? and vcdbID = ? `
+	findVehicleStmt          = `select  v.ID from vcdb_Vehicle as v
+		join BaseVehicle as b on b.ID = v.BaseVehicleID
+		join Submodel as s on s.ID = v.SubmodelID
+		join VehicleConfig as vc on vc.ID = v.ConfigID
+		join VehicleConfigAttribute as vca on vca.VehicleConfigID = v.ConfigID
+		where b.AAIABaseVehicleID = ?
+		and s.AAIASubmodelID = ?
+		and vca.AttributeID = ? `
+	insertBaseVehicle = `insert into BaseVehicle(AAIABaseVehicleID, YearID, MakeID, ModelID) values(?,?,?,?)`
+	insertSubmodel    = `insert into Submodel (AAIASubmodelID, SubmodelName) values (?,?)`
 )
 
 var acesTypeCurtTypeMap map[int]int
 var configMap map[string]string
 var configAttributeTypeMap map[int]int
 var configAttributeMap map[string]int
+var baseMap map[int]int
+var subMap map[int]int
 var initConfigMaps sync.Once
 
 func initConfigMap() {
@@ -107,6 +119,15 @@ func initConfigMap() {
 	if err != nil {
 		log.Print(err)
 	}
+	baseMap, err = getBaseMap()
+	if err != nil {
+		log.Print(err)
+	}
+	subMap, err = getSubMap()
+	if err != nil {
+		log.Print(err)
+	}
+
 	// partMap, err = getPartMap()
 	// if err != nil {
 	// 	log.Print(err)
@@ -223,19 +244,372 @@ func ReduceConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 		return err
 	}
 
-	// err = ReduceAcesCC()
-	// err = ReduceAcesCid()
+	//These two just panic - no Corresponding curt type
+	err = ReduceAcesCC()
+	if err != nil {
+		return err
+	}
+	err = ReduceAcesCid()
+	if err != nil {
+		return err
+	}
 
+	//Sanity Check
 	log.Print("LENGTH:", len(newCvgs), "\n\n")
-	// for _, r := range newCvgs {
-	// 	log.Print(r, "\n\n")
-	// }
+
+	//Check for duplicates
+	for _, r := range newCvgs {
+		for i, c := range r.ConfigVehicles {
+			if i > 1 {
+				comparison, err := CompareConfigFields(c, r.ConfigVehicles[i-1])
+				if err != nil {
+					return err
+				}
+				if comparison == false {
+					log.Print("FALSE ", r, "\n\n")
+					err = errors.New("Configs didn't reduce out completely")
+					return err
+				}
+			}
+		}
+	}
 
 	//all good above? Begin checking/writing vehicles/vehicleConfigs and checking/writing vehicleparts
+	for _, cvg := range newCvgs {
+		// log.Print(cvg)
+		err = Process(cvg.ConfigVehicles) //send array of ConfigVehiclesRaw (which contain array of attributes to link to vehicle and part)
+		if err != nil {
+			return err
+		}
+	}
+	log.Print("ALL DONE ", err)
+	return err
+}
+
+func Process(cvg []ConfigVehicleRaw) error {
+	var err error
+	for _, raw := range cvg { //for each vehicle
+		//make attribute array
+		var attrs []int
+		for _, attr := range raw.CurtAttributeIDs {
+			attrs = append(attrs, attr)
+		}
+		//get curt base and submodel
+		cBaseID := baseMap[raw.BaseID]
+		if cBaseID == 0 {
+			//create base
+			cBaseID, err = InsertBaseVehicle(raw.BaseID)
+			if err != nil {
+				return err
+			}
+		}
+		cSubmodelID := subMap[raw.SubmodelID]
+		if cSubmodelID == 0 {
+			//create submodel
+			cSubmodelID, err = InsertSubmodel(raw.SubmodelID)
+			if err != nil {
+				return err
+			}
+		}
+		//no attributes ?
+		if len(attrs) == 0 {
+			//enter as a submodel
+			// _, err = CheckSubmodelAndParts(raw.SubmodelID, raw.BaseID, raw.PartNumber, "ariesConfigs")
+			if err != nil {
+				return err
+			}
+		} else {
+
+			//else insert
+			err = FindVehicleWithAttributes(cBaseID, cSubmodelID, raw.PartNumber, attrs)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+	return err
+}
+
+func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
+	//build goddamn query
+	//find vehicle with these attri
+	if len(configAttributeArray) == 0 {
+		log.Panic("NO CONFIGS TO INSERT")
+	}
+	sqlStmt := `select  v.ID from vcdb_Vehicle as v
+		join BaseVehicle as b on b.ID = v.BaseVehicleID
+		join Submodel as s on s.ID = v.SubmodelID
+		join VehicleConfigAttribute as vca on vca.VehicleConfigID = v.ConfigID
+		where b.ID = ?
+		and s.ID = ?
+		and vca.VehicleConfigID in
+		(select vca.VehicleConfigID from VehicleConfigAttribute as vca
+		where vca.AttributeID = ` + strconv.Itoa(configAttributeArray[0]) + `) `
+
+	for i := 0; i < len(configAttributeArray); i++ {
+		if configAttributeArray[i] != 0 {
+			sqlStmt += ` and vca.VehicleConfigID in
+		(select vca.VehicleConfigID from VehicleConfigAttribute as vca
+		where  vca.AttributeID = ` + strconv.Itoa(configAttributeArray[i]) + `) `
+		}
+	}
+
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(sqlStmt)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	var vId int
+	err = stmt.QueryRow(cBaseID, cSubmodelID).Scan(&vId)
+	log.Print("vId and err ", vId, err)
+	if err != nil {
+		log.Print("NEED VEHICLE")
+		if err == sql.ErrNoRows {
+			//no matching vehicle, must create
+			err = createVehicleConfigAttributes(cBaseID, cSubmodelID, partNumber, configAttributeArray)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+
+		}
+		return err
+	} else {
+		log.Print("VEHICLE FOUND, CHECKING PARTS")
+		//insert vehiclePart if no match
+		findPartStmt := "select ID from vcdb_VehiclePart where VehicleID = ? and PartNumber = ?"
+		stmt, err = db.Prepare(findPartStmt)
+		if err != nil {
+			return err
+		}
+		var successVPid int
+		err = stmt.QueryRow(vId, partNumber).Scan(&successVPid)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				//insert vp
+				// stmt, err = db.Prepare(insertVehiclePartStmt)
+				// if err != nil {
+				// 	return err
+				// }
+				// _, err = stmt.Exec(vId, partNumber)
+				err = InsertVehiclePart(vId, partNumber)
+				if err != nil {
+					return err
+				}
+			}
+			return err //actual error
+		}
+		log.Print("VEHICLEPART FOUND - Part ", partNumber, " exists for ", cBaseID, cSubmodelID)
+		//end find and/or insert
+		return err
+	}
 
 	return err
 }
 
+func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	log.Print("insert vehicleConfig")
+	//new vehicleConfig
+	stmt, err := db.Prepare(insertVehicleConfigStmt)
+	if err != nil {
+		return err
+	}
+	res, err := stmt.Exec()
+	if err != nil {
+		return err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	vConfigId := int(id)
+
+	log.Print("insert vehicle. baseID: ", cBaseID, "   sub: ", cSubmodelID, "   confg: ", vConfigId)
+	//insert new vehicle first
+	//TODO - missing base or submodel?
+	vehicleInsertStmt := `insert into vcdb_Vehicle (BaseVehicleID, SubModelID, ConfigID, AppID) values (?,?,?,0)`
+	stmt, err = db.Prepare(vehicleInsertStmt)
+	if err != nil {
+		return err
+	}
+	res, err = stmt.Exec(cBaseID, cSubmodelID, vConfigId)
+	if err != nil {
+		return err
+	}
+	id, err = res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	vId := int(id)
+
+	//insert vehicleConfigAttribute
+	//TODO - fix this
+	sqlStmt := `insert into VehicleConfigAttribute (AttributeID, VehicleConfigID) values `
+	for i := 0; i < len(configAttributeArray); i++ {
+		// sqlStmt += sqlAddOns
+		// if configAttributeArray[i] != 0 {
+		log.Print(configAttributeArray[i], "__", vConfigId)
+		sqlStmt += `(` + strconv.Itoa(configAttributeArray[i]) + `,` + strconv.Itoa(vConfigId) + `),`
+		// }
+	}
+
+	sqlStmt = strings.TrimRight(sqlStmt, ",")
+
+	log.Print("insert vehicleConfigAttributes  --  ", sqlStmt)
+	stmt, err = db.Prepare(sqlStmt)
+	if err != nil {
+		log.Print("STMT ERR ", err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec()
+	if err != nil {
+		return err
+	}
+	log.Print("HERE - insert vehicle")
+	err = InsertVehiclePart(vId, partNumber)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+func InsertVehiclePart(vId int, partNum string) error {
+	log.Print("INsert Vehicle")
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(insertVehiclePartStmt)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(vId, partNum)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+type VehicleInfo struct {
+	Make     string `bson:"makeId,omitempty"`
+	Model    string `bson:"modelId,omitempty"`
+	Year     int    `bson:"yearId,omitempty"`
+	Submodel string `bson:"submodel,omitempty"`
+}
+
+func InsertBaseVehicle(aaiaBaseId int) (int, error) {
+	var err error
+	var cBaseId int
+	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
+	if err != nil {
+		return cBaseId, err
+	}
+	defer session.Close()
+	collection := session.DB("importer").C("aries")
+
+	b := VehicleInfo{}
+
+	//write to csv raw vehicles
+	err = collection.Find(bson.M{"baseVehicleId": aaiaBaseId}).One(&b)
+
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return cBaseId, err
+	}
+	defer db.Close()
+	var makeId, modelId int
+
+	stmt, err := db.Prepare("select ID from vcdb_Model where AAIAModelID = ?")
+	if err != nil {
+		return cBaseId, err
+	}
+	err = stmt.QueryRow(b.Model).Scan(&modelId)
+	if err != nil {
+		return cBaseId, err
+	}
+
+	stmt, err = db.Prepare("select ID from vcdb_Make where AAIAMakelID = ?")
+	if err != nil {
+		return cBaseId, err
+	}
+	err = stmt.QueryRow(b.Make).Scan(&makeId)
+	if err != nil {
+		return cBaseId, err
+	}
+
+	stmt, err = db.Prepare(insertBaseVehicle)
+	if err != nil {
+		return cBaseId, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Exec(aaiaBaseId, b.Year, makeId, modelId)
+	if err != nil {
+		return cBaseId, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return cBaseId, err
+	}
+	cBaseId = int(id)
+	return cBaseId, err
+}
+
+func InsertSubmodel(aaiaSubdmodel int) (int, error) {
+	var err error
+	var cSubId int
+	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
+	if err != nil {
+		return cSubId, err
+	}
+	defer session.Close()
+	collection := session.DB("importer").C("aries")
+
+	b := VehicleInfo{}
+
+	//write to csv raw vehicles
+	err = collection.Find(bson.M{"submodelId": aaiaSubdmodel}).One(&b)
+
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return cSubId, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare(insertSubmodel)
+	if err != nil {
+		return cSubId, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Exec(aaiaSubdmodel, b.Submodel)
+	if err != nil {
+		return cSubId, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return cSubId, err
+	}
+	cSubId = int(id)
+	return cSubId, err
+}
+
+//Begin Reduction Funcs
 func ReduceFuelType() error {
 	var err error
 	var cvgsArray []ConfigVehicleGroup
@@ -747,9 +1121,153 @@ func ReduceAcesLiter() error {
 	return err
 }
 
+// func ReduceAcesCC() error {
+// 	var err error
+// 	var cvgsArray []ConfigVehicleGroup
+
+// 	for _, cvg := range newCvgs {
+// 		//loop through fields
+// 		var ftype []int
+// 		for _, c := range cvg.ConfigVehicles {
+// 			//fuel type
+// 			ftype = append(ftype, int(c.AcesCC))
+// 		}
+// 		ftype = removeDuplicatesFromIntArray(ftype)
+
+// 		//FUEL TYPE
+// 		if len(ftype) > 1 {
+// 			mmm := make(map[float64][]ConfigVehicleRaw)
+
+// 			for _, c := range cvg.ConfigVehicles {
+// 				// log.Print(c, mmm)
+// 				mmm[c.AcesCC] = append(mmm[c.AcesCC], c)
+// 			}
+// 			// log.Print(mmm)
+// 			for _, m := range mmm {
+// 				var tempCvg ConfigVehicleGroup
+// 				tempCvg.BaseID = cvg.BaseID
+// 				tempCvg.SubID = cvg.SubID
+// 				tempCvg.VehicleID = cvg.VehicleID
+// 				for _, mm := range m {
+// 					//GetCurtTypeId
+// 					curtConfigTypeId := configAttributeTypeMap[206]
+// 					if curtConfigTypeId == 0 {
+// 						log.Print("Missing Type: AcesCC")
+// 						//TODO CREATE  configType
+// 						log.Panic("Missing type")
+// 					}
+// 					// log.Print("Config TYPE ", curtConfigTypeId)
+// 					if mm.AcesCC > 0 {
+// 						curtConfigId, err := getCurtConfigValue(curtConfigTypeId, int(mm.AcesCC))
+// 						if err != nil {
+// 							if err == sql.ErrNoRows {
+// 								err = nil
+// 								AcesValue, err := getAcesConfigurationValueName(206, int(mm.AcesCC))
+// 								if err != nil {
+// 									return err
+// 								}
+// 								curtConfigId, err = createCurtConfigValue(curtConfigTypeId, int(mm.AcesCC), AcesValue)
+// 								if err != nil {
+// 									return err
+// 								}
+// 							} else {
+// 								return err
+// 							}
+// 						}
+// 						// log.Print("CURT CONFIG ", curtConfigId)
+// 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+// 						tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+// 					}
+// 				}
+// 				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
+// 				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 206) // 6 - Aces Liter - special case
+
+// 				cvgsArray = append(cvgsArray, tempCvg)
+// 			}
+// 		} else {
+// 			cvgsArray = append(cvgsArray, cvg)
+// 		}
+// 	}
+// 	newCvgs = cvgsArray
+
+// 	return err
+// }
+
+// func ReduceAcesCid() error {
+// 	var err error
+// 	var cvgsArray []ConfigVehicleGroup
+
+// 	for _, cvg := range newCvgs {
+// 		//loop through fields
+// 		var ftype []int
+// 		for _, c := range cvg.ConfigVehicles {
+// 			//fuel type
+// 			ftype = append(ftype, int(c.AcesCID))
+// 		}
+// 		ftype = removeDuplicatesFromIntArray(ftype)
+
+// 		//FUEL TYPE
+// 		if len(ftype) > 1 {
+// 			mmm := make(map[uint16][]ConfigVehicleRaw)
+
+// 			for _, c := range cvg.ConfigVehicles {
+// 				// log.Print(c, mmm)
+// 				mmm[c.AcesCID] = append(mmm[c.AcesCID], c)
+// 			}
+// 			// log.Print(mmm)
+// 			for _, m := range mmm {
+// 				var tempCvg ConfigVehicleGroup
+// 				tempCvg.BaseID = cvg.BaseID
+// 				tempCvg.SubID = cvg.SubID
+// 				tempCvg.VehicleID = cvg.VehicleID
+// 				for _, mm := range m {
+// 					//GetCurtTypeId
+// 					curtConfigTypeId := configAttributeTypeMap[306]
+// 					if curtConfigTypeId == 0 {
+// 						log.Print("Missing Type: AcesCid")
+// 						//TODO CREATE  configType
+// 						log.Panic("Missing type")
+// 					}
+// 					// log.Print("Config TYPE ", curtConfigTypeId)
+// 					if mm.AcesCID > 0 {
+// 						curtConfigId, err := getCurtConfigValue(curtConfigTypeId, int(mm.AcesCID))
+// 						if err != nil {
+// 							if err == sql.ErrNoRows {
+// 								err = nil
+// 								AcesValue, err := getAcesConfigurationValueName(306, int(mm.AcesCID))
+// 								if err != nil {
+// 									return err
+// 								}
+// 								curtConfigId, err = createCurtConfigValue(curtConfigTypeId, int(mm.AcesCID), AcesValue)
+// 								if err != nil {
+// 									return err
+// 								}
+// 							} else {
+// 								return err
+// 							}
+// 						}
+// 						// log.Print("CURT CONFIG ", curtConfigId)
+// 						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
+// 						tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
+// 					}
+// 				}
+// 				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
+// 				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 306) // 6 - Aces Liter - special case
+
+// 				cvgsArray = append(cvgsArray, tempCvg)
+// 			}
+// 		} else {
+// 			cvgsArray = append(cvgsArray, cvg)
+// 		}
+// 	}
+// 	newCvgs = cvgsArray
+
+// 	return err
+// }
+
 func ReduceAcesCC() error {
 	var err error
-	var cvgsArray []ConfigVehicleGroup
+	// var cvgsArray []ConfigVehicleGroup
 
 	for _, cvg := range newCvgs {
 		//loop through fields
@@ -762,66 +1280,15 @@ func ReduceAcesCC() error {
 
 		//FUEL TYPE
 		if len(ftype) > 1 {
-			mmm := make(map[float64][]ConfigVehicleRaw)
-
-			for _, c := range cvg.ConfigVehicles {
-				// log.Print(c, mmm)
-				mmm[c.AcesCC] = append(mmm[c.AcesCC], c)
-			}
-			// log.Print(mmm)
-			for _, m := range mmm {
-				var tempCvg ConfigVehicleGroup
-				tempCvg.BaseID = cvg.BaseID
-				tempCvg.SubID = cvg.SubID
-				tempCvg.VehicleID = cvg.VehicleID
-				for _, mm := range m {
-					//GetCurtTypeId
-					curtConfigTypeId := configAttributeTypeMap[206]
-					if curtConfigTypeId == 0 {
-						log.Print("Missing Type: AcesCC")
-						//TODO CREATE  configType
-						log.Panic("Missing type")
-					}
-					// log.Print("Config TYPE ", curtConfigTypeId)
-					if mm.AcesCC > 0 {
-						curtConfigId, err := getCurtConfigValue(curtConfigTypeId, int(mm.AcesCC))
-						if err != nil {
-							if err == sql.ErrNoRows {
-								err = nil
-								AcesValue, err := getAcesConfigurationValueName(206, int(mm.AcesCC))
-								if err != nil {
-									return err
-								}
-								curtConfigId, err = createCurtConfigValue(curtConfigTypeId, int(mm.AcesCC), AcesValue)
-								if err != nil {
-									return err
-								}
-							} else {
-								return err
-							}
-						}
-						// log.Print("CURT CONFIG ", curtConfigId)
-						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
-						tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
-					}
-				}
-				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
-				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 206) // 6 - Aces Liter - special case
-
-				cvgsArray = append(cvgsArray, tempCvg)
-			}
-		} else {
-			cvgsArray = append(cvgsArray, cvg)
+			log.Panic("Diff on CC")
 		}
 	}
-	newCvgs = cvgsArray
-
 	return err
 }
 
 func ReduceAcesCid() error {
 	var err error
-	var cvgsArray []ConfigVehicleGroup
+	// var cvgsArray []ConfigVehicleGroup
 
 	for _, cvg := range newCvgs {
 		//loop through fields
@@ -834,60 +1301,9 @@ func ReduceAcesCid() error {
 
 		//FUEL TYPE
 		if len(ftype) > 1 {
-			mmm := make(map[uint16][]ConfigVehicleRaw)
-
-			for _, c := range cvg.ConfigVehicles {
-				// log.Print(c, mmm)
-				mmm[c.AcesCID] = append(mmm[c.AcesCID], c)
-			}
-			// log.Print(mmm)
-			for _, m := range mmm {
-				var tempCvg ConfigVehicleGroup
-				tempCvg.BaseID = cvg.BaseID
-				tempCvg.SubID = cvg.SubID
-				tempCvg.VehicleID = cvg.VehicleID
-				for _, mm := range m {
-					//GetCurtTypeId
-					curtConfigTypeId := configAttributeTypeMap[306]
-					if curtConfigTypeId == 0 {
-						log.Print("Missing Type: AcesCid")
-						//TODO CREATE  configType
-						log.Panic("Missing type")
-					}
-					// log.Print("Config TYPE ", curtConfigTypeId)
-					if mm.AcesCID > 0 {
-						curtConfigId, err := getCurtConfigValue(curtConfigTypeId, int(mm.AcesCID))
-						if err != nil {
-							if err == sql.ErrNoRows {
-								err = nil
-								AcesValue, err := getAcesConfigurationValueName(306, int(mm.AcesCID))
-								if err != nil {
-									return err
-								}
-								curtConfigId, err = createCurtConfigValue(curtConfigTypeId, int(mm.AcesCID), AcesValue)
-								if err != nil {
-									return err
-								}
-							} else {
-								return err
-							}
-						}
-						// log.Print("CURT CONFIG ", curtConfigId)
-						mm.CurtAttributeIDs = append(mm.CurtAttributeIDs, curtConfigId)
-						tempCvg.ConfigVehicles = append(tempCvg.ConfigVehicles, mm)
-					}
-				}
-				tempCvg.DiffConfigs = cvg.DiffConfigs                  //previous diffCOnfigs
-				tempCvg.DiffConfigs = append(tempCvg.DiffConfigs, 306) // 6 - Aces Liter - special case
-
-				cvgsArray = append(cvgsArray, tempCvg)
-			}
-		} else {
-			cvgsArray = append(cvgsArray, cvg)
+			log.Panic("Diff on CID")
 		}
 	}
-	newCvgs = cvgsArray
-
 	return err
 }
 
@@ -1640,60 +2056,17 @@ func ReduceEngineConfig() error {
 	return err
 }
 
-// //Hopefully, Vehicles are limited to unique arrays of configs and can be created based on their DiffConfigs arrays
-// //This kicks it off
-// func ProcessReducedConfigs() error {
-// 	var err error
-// 	configErrorFile, err := os.Create("exports/ConfigErrorFile.txt")
-// 	if err != nil {
-// 		return err
-// 	}
-// 	off := int64(0)
+//Begin Utility Funcs
+//This just compares the config fields of two Configs Set for the types we actually look at
+func CompareConfigFields(c1, c2 ConfigVehicleRaw) (bool, error) {
+	var err error
+	var match bool
+	if c1.AcesCC == c2.AcesCC && c1.AcesCID == c2.AcesCID && c1.AcesLiter == c2.AcesLiter && c1.AspirationID == c2.AspirationID && c1.AcesBlockType == c2.AcesBlockType && c1.FuelTypeID == c2.FuelTypeID && c1.FuelDeliveryID == c2.FuelDeliveryID && c1.DriveTypeID == c2.DriveTypeID && c1.BodyNumDoorsID == c2.BodyNumDoorsID && c1.EngineVinID == c2.EngineVinID && c1.BodyTypeID == c2.BodyTypeID && c1.PowerOutputID == c2.PowerOutputID && c1.FuelDeliveryID == c2.FuelDeliveryID && c1.BodyStyleConfigID == c2.BodyStyleConfigID && c1.ValvesID == c2.ValvesID && c1.CylHeadTypeID == c2.CylHeadTypeID && c1.EngineBaseID == c2.EngineBaseID && c1.EngineConfigID == c2.EngineConfigID {
+		match = true
+	}
 
-// 	log.Print("Num of ConfigVehicles Processed: ", len(newCvgsEngineConfig), "\n\n")
-// 	for _, r := range newCvgsEngineConfig {
-// 		processCvg := false
-// 		if len(r.ConfigVehicles) > 1 {
-// 			for i, con := range r.ConfigVehicles {
-// 				if i > 1 { //not the first - we compare to i-1
-// 					comparedConfigs, _ := CompareConfigFields(con, r.ConfigVehicles[i-1])
-// 					if comparedConfigs == false {
-// 						//write this ConfigVehicleGroup to file
-// 						b := []byte(strconv.Itoa(r.BaseID) + "," + strconv.Itoa(r.SubID) + "," + strconv.Itoa(r.VehicleID) + "\n")
-// 						n, err := configErrorFile.WriteAt(b, off)
-// 						if err != nil {
-// 							return err
-// 						}
-// 						off += int64(n)
-// 						continue
-// 					} else {
-// 						processCvg = true
-// 						//good to process
-// 					}
-// 				}
-// 			}
-// 		} else {
-// 			processCvg = true //only a single attribute array - also good to process
-
-// 		}
-// 		if processCvg == true {
-// 			//begin the databasing
-// 			err = AuditConfigsRedux(r)
-// 		}
-// 	}
-// 	return err
-// }
-
-// //This just compares the config fields of two Configs Set for the types we actually look at
-// func CompareConfigFields(c1, c2 ConfigVehicleRaw) (bool, error) {
-// 	var err error
-// 	var match bool
-// 	if c1.AcesCC == c2.AcesCC && c1.AcesCID == c2.AcesCID && c1.AcesLiter == c2.AcesLiter && c1.AspirationID == c2.AspirationID && c1.AcesBlockType == c2.AcesBlockType && c1.FuelTypeID == c2.FuelTypeID && c1.FuelDeliveryID == c2.FuelDeliveryID && c1.DriveTypeID == c2.DriveTypeID && c1.BodyNumDoorsID == c2.BodyNumDoorsID && c1.EngineVinID == c2.EngineVinID && c1.BodyTypeID == c2.BodyTypeID && c1.PowerOutputID == c2.PowerOutputID && c1.FuelDeliveryID == c2.FuelDeliveryID && c1.BodyStyleConfigID == c2.BodyStyleConfigID && c1.ValvesID == c2.ValvesID && c1.CylHeadTypeID == c2.CylHeadTypeID && c1.EngineBaseID == c2.EngineBaseID && c1.EngineConfigID == c2.EngineConfigID {
-// 		match = true
-// 	}
-
-// 	return match, err
-// }
+	return match, err
+}
 
 func removeDuplicatesFromIntArray(a []int) []int {
 	var output []int
@@ -2159,6 +2532,5 @@ func getAcesConfigurationValueName(aaiaConfigTypeID, aaiaConfigValueID int) (str
 		}
 		return valueName, err
 	}
-	log.Print(valueName, err)
 	return valueName, err
 }
