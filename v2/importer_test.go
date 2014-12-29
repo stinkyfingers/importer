@@ -37,15 +37,15 @@ func TestImporter(t *testing.T) {
 		// So(err, ShouldBeNil)
 
 		// err = setMaxConnections(1200)
-		// So(err, ShouldBeNil)
-		// err = DiffBaseVehicles(dbCollection) //false - no audit configs; no DB writes
-		// So(err, ShouldBeNil)
+		So(err, ShouldBeNil)
+		err = DiffBaseVehicles(dbCollection) //false - no audit configs; no DB writes
+		So(err, ShouldBeNil)
 
 		// err = DiffSubmodels(submodelCollection)
 		// So(err, ShouldBeNil)
 
-		err = DiffConfigsRedux("ariesConfigs") //usually ariesConfigs -
-		So(err, ShouldBeNil)
+		// err = DiffConfigsRedux("ariesConfigs") //usually ariesConfigs -
+		// So(err, ShouldBeNil)
 
 		// err = setMaxConnections(151)
 		// So(err, ShouldBeNil)

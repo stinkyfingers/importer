@@ -11,7 +11,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	// "os"
+	"os"
 	// "reflect"
 	// "sort"
 	"strconv"
@@ -57,16 +57,10 @@ type ConfigVehicleGroup struct {
 	ConfigVehicles []ConfigVehicleRaw
 }
 
-// //get AcesValueId
-// 					AcesValueId, err := getAcesConfigurationValueID(6, strconv.Itoa(int(mm.FuelTypeID)))
-// 					if err != nil {
-// 						log.Print(err)
-// 						return err
-// 					}
-// 					log.Print("CurtTypeID", AcesValueId)
-
 var newCvgs []ConfigVehicleGroup //static var
-
+var configPartNeededOffset int64 = 0
+var processedConfigVehicles int = 0
+var insertQueriesOffset int64 = 0
 var (
 	configMapStmt = `select ca.ConfigAttributeTypeID, cat.AcesTypeID, ca.vcdbID, ca.ID 
 			from CurtDev.ConfigAttribute as ca 
@@ -83,7 +77,7 @@ var (
 		join BaseVehicle as b on b.ID = v.BaseVehicleID
 		join Submodel as s on s.ID = v.SubmodelID
 		join VehicleConfigAttribute as vca on vca.VehicleConfigID = v.ConfigID`
-	insertVehiclePartStmt    = `insert into vcdb_VehiclePart (VehicleID, PartNumber) values (?, (select partID from Part where oldPartNumber = ?))`
+	insertVehiclePartStmt    = `insert into vcdb_VehiclePart (VehicleID, PartNumber) values (?, ?)`
 	insertVehicleConfigStmt  = `insert into VehicleConfig (AAIAVehicleConfigID) values (0)`
 	insertCurtConfigTypeStmt = `insert into ConfigAttributeType(name, AcesTypeID, sort) values (?,?,?)`
 	insertCurtConfigStmt     = `insert into ConfigAttribute(ConfigAttributeTypeID, parentID, vcdbID, value) values(?,0,?,?)`
@@ -98,6 +92,14 @@ var (
 		and vca.AttributeID = ? `
 	insertBaseVehicle = `insert into BaseVehicle(AAIABaseVehicleID, YearID, MakeID, ModelID) values(?,?,?,?)`
 	insertSubmodel    = `insert into Submodel (AAIASubmodelID, SubmodelName) values (?,?)`
+	findSubmodelStmt  = `select  v.ID from vcdb_Vehicle as v
+		join BaseVehicle as b on b.ID = v.BaseVehicleID
+		join Submodel as s on s.ID = v.SubmodelID
+		where b.ID = ?
+		and s.ID = ?
+		and (v.ConfigID is null or v.ConfigID = 0)`
+	findPartStmt      = "select VehicleID from vcdb_VehiclePart where VehicleID = ? and PartNumber = (select p.partID from Part as p where p.oldPartNumber = ? limit 1)"
+	vehicleInsertStmt = `insert into vcdb_Vehicle (BaseVehicleID, SubModelID, ConfigID, AppID) values (?,?,?,0)`
 )
 
 var acesTypeCurtTypeMap map[int]int
@@ -106,7 +108,12 @@ var configAttributeTypeMap map[int]int
 var configAttributeMap map[string]int
 var baseMap map[int]int
 var subMap map[int]int
+var partMap map[string]int
+var missingPartNumbers *os.File
+var insertVehiclePartQueries *os.File
 var initConfigMaps sync.Once
+var vehicleOldPartArray []string
+var submodelVehicleMap map[string]int
 
 func initConfigMap() {
 	var err error
@@ -128,14 +135,27 @@ func initConfigMap() {
 		log.Print(err)
 	}
 
-	// partMap, err = getPartMap()
-	// if err != nil {
-	// 	log.Print(err)
-	// }
-	// missingPartNumbers, err = createMissingPartNumbers("MissingPartNumbers_Configs")
-	// if err != nil {
-	// 	log.Print("err creating missingPartNumbers ", err)
-	// }
+	partMap, err = getPartMap()
+	if err != nil {
+		log.Print(err)
+	}
+	missingPartNumbers, err = createMissingPartNumbers("MissingPartNumbers_Configs")
+	if err != nil {
+		log.Print("err creating missingPartNumbers ", err)
+	}
+	vehicleOldPartArray, err = getVehicleOldPartArray()
+	if err != nil {
+		log.Print(err)
+	}
+	insertVehiclePartQueries, insertQueriesOffset, err = createInsertStatementsFile("InsertStatements_VehiclePart_configs")
+	if err != nil {
+		log.Print("err creating insertStatements ", err)
+	}
+	submodelVehicleMap, err = getSubmodelInVehicleTableMap()
+	if err != nil {
+		log.Print(err)
+	}
+
 }
 
 //For all mongodb entries, returns ConfigVehicleRaws
@@ -286,9 +306,16 @@ func ReduceConfigs(configVehicleGroups []ConfigVehicleGroup) error {
 	return err
 }
 
+//for each RawVehicle (w/ array of configs)
+//check for existence of BaseVehicle
+//check for existence of Submodel
+//if no attributes, process as submodel
+//else, process with configs
 func Process(cvg []ConfigVehicleRaw) error {
 	var err error
 	for _, raw := range cvg { //for each vehicle
+		processedConfigVehicles++
+		log.Print(processedConfigVehicles)
 		//make attribute array
 		var attrs []int
 		for _, attr := range raw.CurtAttributeIDs {
@@ -315,22 +342,63 @@ func Process(cvg []ConfigVehicleRaw) error {
 		if len(attrs) == 0 {
 			//enter as a submodel
 			// _, err = CheckSubmodelAndParts(raw.SubmodelID, raw.BaseID, raw.PartNumber, "ariesConfigs")
+			err = FindSubmodelWithParts(cBaseID, cSubmodelID, raw.PartNumber, attrs)
 			if err != nil {
 				return err
 			}
 		} else {
-
 			//else insert
 			err = FindVehicleWithAttributes(cBaseID, cSubmodelID, raw.PartNumber, attrs)
 			if err != nil {
 				return err
 			}
 		}
-
 	}
 	return err
 }
 
+//search for this vehicle (submodel) in vcdb_Vehicle
+//if it does not exist, create
+//check for vehiclePart, insert if it does not exist
+func FindSubmodelWithParts(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
+	var err error
+	var vId int
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	a := []string{strconv.Itoa(cBaseID), strconv.Itoa(cSubmodelID)}
+	str := strings.Join(a, ":")
+	vId = submodelVehicleMap[str]
+	if vId == 0 {
+		log.Print("Submodel not found")
+
+		//create vehicle
+		stmt, err := db.Prepare(vehicleInsertStmt)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+		res, err := stmt.Exec(cBaseID, cSubmodelID, nil)
+		if err != nil {
+			return err
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		vId = int(id)
+
+	}
+	err = FindPart(vId, partNumber)
+	return err
+}
+
+//search for this vehicle in vcdb_Vehicle with it's array of 1-inifity attributes
+//if it does not exist, create
+//check for vehiclePart, insert if it does not exist
 func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
 	//build goddamn query
 	//find vehicle with these attri
@@ -368,53 +436,43 @@ func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, 
 	defer stmt.Close()
 	var vId int
 	err = stmt.QueryRow(cBaseID, cSubmodelID).Scan(&vId)
-	log.Print("vId and err ", vId, err)
+	// log.Print("vId and err ", vId, err)
 	if err != nil {
-		log.Print("NEED VEHICLE")
 		if err == sql.ErrNoRows {
 			//no matching vehicle, must create
 			err = createVehicleConfigAttributes(cBaseID, cSubmodelID, partNumber, configAttributeArray)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 
 		}
 		return err
 	} else {
-		log.Print("VEHICLE FOUND, CHECKING PARTS")
-		//insert vehiclePart if no match
-		findPartStmt := "select ID from vcdb_VehiclePart where VehicleID = ? and PartNumber = ?"
-		stmt, err = db.Prepare(findPartStmt)
-		if err != nil {
-			return err
-		}
-		var successVPid int
-		err = stmt.QueryRow(vId, partNumber).Scan(&successVPid)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				//insert vp
-				// stmt, err = db.Prepare(insertVehiclePartStmt)
-				// if err != nil {
-				// 	return err
-				// }
-				// _, err = stmt.Exec(vId, partNumber)
-				err = InsertVehiclePart(vId, partNumber)
-				if err != nil {
-					return err
-				}
-			}
-			return err //actual error
-		}
-		log.Print("VEHICLEPART FOUND - Part ", partNumber, " exists for ", cBaseID, cSubmodelID)
-		//end find and/or insert
+
+		err = FindPart(vId, partNumber)
 		return err
 	}
 
 	return err
 }
 
+func FindPart(vId int, partNum string) error {
+	//Check for existence of vehiclePart
+	var err error
+	a := []string{strconv.Itoa(vId), partNum}
+	str := strings.Join(a, ":")
+	for _, vp := range vehicleOldPartArray {
+		if vp == str {
+			log.Print("VehiclePart found.")
+			return nil
+		}
+	}
+	err = InsertVehiclePart(vId, partNum)
+	return err
+}
+
 func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
+
 	db, err := sql.Open("mysql", database.ConnectionString())
 	if err != nil {
 		return err
@@ -438,8 +496,7 @@ func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 
 	log.Print("insert vehicle. baseID: ", cBaseID, "   sub: ", cSubmodelID, "   confg: ", vConfigId)
 	//insert new vehicle first
-	//TODO - missing base or submodel?
-	vehicleInsertStmt := `insert into vcdb_Vehicle (BaseVehicleID, SubModelID, ConfigID, AppID) values (?,?,?,0)`
+
 	stmt, err = db.Prepare(vehicleInsertStmt)
 	if err != nil {
 		return err
@@ -455,7 +512,6 @@ func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 	vId := int(id)
 
 	//insert vehicleConfigAttribute
-	//TODO - fix this
 	sqlStmt := `insert into VehicleConfigAttribute (AttributeID, VehicleConfigID) values `
 	for i := 0; i < len(configAttributeArray); i++ {
 		// sqlStmt += sqlAddOns
@@ -467,10 +523,8 @@ func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 
 	sqlStmt = strings.TrimRight(sqlStmt, ",")
 
-	log.Print("insert vehicleConfigAttributes  --  ", sqlStmt)
 	stmt, err = db.Prepare(sqlStmt)
 	if err != nil {
-		log.Print("STMT ERR ", err)
 		return err
 	}
 	defer stmt.Close()
@@ -479,7 +533,6 @@ func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 	if err != nil {
 		return err
 	}
-	log.Print("HERE - insert vehicle")
 	err = InsertVehiclePart(vId, partNumber)
 	if err != nil {
 		return err
@@ -488,25 +541,52 @@ func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 }
 
 func InsertVehiclePart(vId int, partNum string) error {
-	log.Print("INsert Vehicle")
-	db, err := sql.Open("mysql", database.ConnectionString())
-	if err != nil {
-		return err
-	}
-	defer db.Close()
 
-	stmt, err := db.Prepare(insertVehiclePartStmt)
+	//check part Number
+	partId := partMap[partNum]
+	if partId == 0 {
+		b := []byte(partNum + "\n")
+		n, err := missingPartNumbers.WriteAt(b, configPartNeededOffset)
+		if err != nil {
+			return err
+		}
+		configPartNeededOffset += int64(n)
+		return nil
+	}
+	//Write to txt
+	b := []byte("(" + strconv.Itoa(vId) + "," + strconv.Itoa(partId) + "),\n")
+	n, err := insertVehiclePartQueries.WriteAt(b, insertQueriesOffset)
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
-	_, err = stmt.Exec(vId, partNum)
-	if err != nil {
-		return err
-	}
+	insertQueriesOffset += int64(n)
+
+	//SQL version
+	// db, err := sql.Open("mysql", database.ConnectionString())
+	// if err != nil {
+	// 	return err
+	// }
+	// defer db.Close()
+
+	// stmt, err := db.Prepare(insertVehiclePartStmt)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer stmt.Close()
+	// _, err = stmt.Exec(vId, partId)
+	// if err != nil {
+	// 	return err
+	// }
+
+	//add vehicle:OldPart to vehiclePartArray
+	a := []string{strconv.Itoa(vId), partNum}
+	str := strings.Join(a, ":")
+	vehicleOldPartArray = append(vehicleOldPartArray, str)
+
 	return err
 }
 
+//Crap for inserting into baseVehicle and Submodel tables
 type VehicleInfo struct {
 	Make     string `bson:"makeId,omitempty"`
 	Model    string `bson:"modelId,omitempty"`
