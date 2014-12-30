@@ -146,7 +146,7 @@ func initConfigMap() {
 	if err != nil {
 		log.Print("err creating missingPartNumbers ", err)
 	}
-	vehicleOldPartArray, err = getVehicleOldPartArray()
+	vehicleOldPartArray, err = GetVehicleOldPartArray()
 	if err != nil {
 		log.Print(err)
 	}
@@ -573,7 +573,8 @@ func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 	if err != nil {
 		return err
 	}
-	err = InsertVehiclePart(vId, partNumber)
+	err = FindPart(vId, partNumber)
+	// err = InsertVehiclePart(vId, partNumber)
 	if err != nil {
 		return err
 	}
@@ -593,30 +594,30 @@ func InsertVehiclePart(vId int, partNum string) error {
 		configPartNeededOffset += int64(n)
 		return nil
 	}
-	//Write to txt
-	b := []byte("(" + strconv.Itoa(vId) + "," + strconv.Itoa(partId) + "),\n")
-	n, err := insertVehiclePartQueries.WriteAt(b, insertQueriesOffset)
+	// //Write to txt
+	// b := []byte("(" + strconv.Itoa(vId) + "," + strconv.Itoa(partId) + "),\n")
+	// n, err := insertVehiclePartQueries.WriteAt(b, insertQueriesOffset)
+	// if err != nil {
+	// 	return err
+	// }
+	// insertQueriesOffset += int64(n)
+
+	//SQL version
+	db, err := sql.Open("mysql", database.ConnectionString())
 	if err != nil {
 		return err
 	}
-	insertQueriesOffset += int64(n)
+	defer db.Close()
 
-	//SQL version
-	// db, err := sql.Open("mysql", database.ConnectionString())
-	// if err != nil {
-	// 	return err
-	// }
-	// defer db.Close()
-
-	// stmt, err := db.Prepare(insertVehiclePartStmt)
-	// if err != nil {
-	// 	return err
-	// }
-	// defer stmt.Close()
-	// _, err = stmt.Exec(vId, partId)
-	// if err != nil {
-	// 	return err
-	// }
+	stmt, err := db.Prepare(insertVehiclePartStmt)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(vId, partId)
+	if err != nil {
+		return err
+	}
 
 	//add vehicle:OldPart to vehiclePartArray
 	a := []string{strconv.Itoa(vId), partNum}

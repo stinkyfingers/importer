@@ -55,7 +55,7 @@ func getSubmodelInVehicleTableMap() (map[string]int, error) {
 	return sMap, err
 }
 
-func getVehicleOldPartArray() ([]string, error) {
+func GetVehicleOldPartArray() ([]string, error) {
 	var err error
 	var a []string
 	db, err := sql.Open("mysql", database.ConnectionString())
@@ -69,7 +69,8 @@ func getVehicleOldPartArray() ([]string, error) {
 		return a, err
 	}
 	defer stmt.Close()
-	var v, p int
+	var v int
+	var p string
 	res, err := stmt.Query()
 	if err != nil {
 		return a, err
@@ -79,7 +80,7 @@ func getVehicleOldPartArray() ([]string, error) {
 		if err != nil {
 			return a, err
 		}
-		x := []string{strconv.Itoa(v), strconv.Itoa(p)}
+		x := []string{strconv.Itoa(v), p}
 		str := strings.Join(x, ":")
 		a = append(a, str)
 	}
