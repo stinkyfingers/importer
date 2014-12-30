@@ -3,7 +3,7 @@ package v2
 import (
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
-	"time"
+	// "time"
 )
 
 func TestImporter(t *testing.T) {
@@ -45,12 +45,12 @@ func TestImporter(t *testing.T) {
 		// err = DiffSubmodels(submodelCollection)
 		// So(err, ShouldBeNil)
 
-		err = DiffConfigsRedux("ariesConfigs", 10000, 0) //usually ariesConfigs - limit,skip
-		So(err, ShouldBeNil)
-		time.Sleep(time.Second * 30)
-		t.Log(0)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 10000) //usually ariesConfigs - limit,skip
+		// err = DiffConfigsRedux("ariesConfigs", 10000, 0) //usually ariesConfigs - limit,skip
 		// So(err, ShouldBeNil)
+		// time.Sleep(time.Second * 30)
+		// t.Log(0)
+		err = DiffConfigsRedux("ariesConfigs", 10000, 0000) //usually ariesConfigs - limit,skip
+		So(err, ShouldBeNil)
 		// time.Sleep(time.Second * 30)
 		// t.Log(10000)
 		// err = DiffConfigsRedux("ariesConfigs", 10000, 20000) //usually ariesConfigs - limit,skip

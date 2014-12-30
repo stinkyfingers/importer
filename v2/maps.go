@@ -157,33 +157,6 @@ func getVehiclePartArray() ([]string, error) {
 	return vp, err
 }
 
-// func getVehiclePartMap() (map[int]int, error) {
-// 	var err error
-// 	vpMap := make(map[int]int)
-// 	db, err := sql.Open("mysql", database.ConnectionString())
-// 	if err != nil {
-// 		return vpMap, err
-// 	}
-// 	defer db.Close()
-
-// 	stmt, err := db.Prepare(vehiclePartStmt)
-// 	if err != nil {
-// 		return vpMap, err
-// 	}
-// 	defer stmt.Close()
-// 	res, err := stmt.Query()
-// 	var p int
-// 	var o int
-// 	for res.Next() {
-// 		err = res.Scan(&o, &p)
-// 		if err != nil {
-// 			return vpMap, err
-// 		}
-// 		vpMap[o] = p
-// 	}
-// 	return vpMap, err
-// }
-
 func getBaseVehicleToVehicleMap() (map[int]int, error) {
 	var err error
 	bvMap := make(map[int]int)

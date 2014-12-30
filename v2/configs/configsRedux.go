@@ -2,7 +2,6 @@ package configs
 
 import (
 	"github.com/curt-labs/polkImporter/helpers/database"
-	// "github.com/curt-labs/polkImporter/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
 
@@ -12,8 +11,6 @@ import (
 	"errors"
 	"log"
 	"os"
-	// "reflect"
-	// "sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -120,7 +117,6 @@ var submodelVehicleMap map[string]int
 
 func initConfigMap() {
 	var err error
-	// configMap, _ = GetConfigMap()
 	configAttributeTypeMap, err = getConfigAttriguteTypeMap()
 	if err != nil {
 		log.Print(err)
@@ -378,7 +374,9 @@ func Process(cvg []ConfigVehicleRaw) error {
 				return err
 			}
 		}
-		//no attributes ?
+
+		//Begin actually processing
+		//submodels that slipped through
 		if len(attrs) == 0 {
 			//enter as a submodel
 			// _, err = CheckSubmodelAndParts(raw.SubmodelID, raw.BaseID, raw.PartNumber, "ariesConfigs")
@@ -387,7 +385,7 @@ func Process(cvg []ConfigVehicleRaw) error {
 				return err
 			}
 		} else {
-			//else insert
+			//else insert as vehicle with configs
 			err = FindVehicleWithAttributes(cBaseID, cSubmodelID, raw.PartNumber, attrs)
 			if err != nil {
 				return err
@@ -476,7 +474,8 @@ func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, 
 	defer stmt.Close()
 	var vId int
 	err = stmt.QueryRow(cBaseID, cSubmodelID).Scan(&vId)
-	// log.Print("vId and err ", vId, err)
+
+	//missing vehicle with these config(s)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//no matching vehicle, must create
@@ -484,7 +483,6 @@ func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, 
 			if err != nil {
 				return err
 			}
-
 		}
 		return err
 	} else {
@@ -594,7 +592,7 @@ func InsertVehiclePart(vId int, partNum string) error {
 		configPartNeededOffset += int64(n)
 		return nil
 	}
-	// //Write to txt
+	// //Write to txt - the SQL version below works fine when processing in batches
 	// b := []byte("(" + strconv.Itoa(vId) + "," + strconv.Itoa(partId) + "),\n")
 	// n, err := insertVehiclePartQueries.WriteAt(b, insertQueriesOffset)
 	// if err != nil {
@@ -627,6 +625,7 @@ func InsertVehiclePart(vId int, partNum string) error {
 	return err
 }
 
+//SUBMODELS AND BASEVEHICLES that need to be created
 //Crap for inserting into baseVehicle and Submodel tables
 type VehicleInfo struct {
 	Make     string `bson:"makeId,omitempty"`
@@ -732,7 +731,7 @@ func InsertSubmodel(aaiaSubdmodel int) (int, error) {
 	return cSubId, err
 }
 
-//Begin Reduction Funcs
+//Begin REDUCTION FUNCTIONS
 func ReduceFuelType() error {
 	var err error
 	var cvgsArray []ConfigVehicleGroup
@@ -2180,7 +2179,7 @@ func ReduceEngineConfig() error {
 	return err
 }
 
-//Begin Utility Funcs
+//Begin UTILITY FUNCTIONS
 //This just compares the config fields of two Configs Set for the types we actually look at
 func CompareConfigFields(c1, c2 ConfigVehicleRaw) (bool, error) {
 	var err error
@@ -2229,28 +2228,6 @@ func removeDuplicatesFromStringArray(a []string) []string {
 	}
 	return output
 }
-
-// func getCurtConfigValue(curtConfigTypeId, aaiaConfigValueId int) (int, error) {
-// 	var err error
-// 	var curtConfigValueId int
-// 	db, err := sql.Open("mysql", database.ConnectionString())
-// 	if err != nil {
-// 		return curtConfigValueId, err
-// 	}
-// 	defer db.Close()
-
-// 	stmt, err := db.Prepare(getCurtConfigValueIdStmt)
-// 	if err != nil {
-// 		return curtConfigValueId, err
-// 	}
-// 	defer stmt.Close()
-// 	err = stmt.QueryRow(curtConfigTypeId, aaiaConfigValueId).Scan(&curtConfigValueId)
-// 	if err != nil {
-// 		return curtConfigValueId, err
-// 	}
-
-// 	return curtConfigValueId, err
-// }
 
 func getCurtConfigValue(curtConfigTypeId, aaiaConfigValueId int) (int, error) {
 	var err error

@@ -36,7 +36,7 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	err = DiffConfigsRedux(configCollection, 0, 0)
+	err = DiffConfigsRedux(configCollection, 0, 0) //limit,skip -10000 limit seems to work well
 	if err != nil {
 		return err
 	}
@@ -77,33 +77,6 @@ func DiffSubmodels(dbCollection string) error {
 	if err != nil {
 		return err
 	}
-	return err
-}
-
-func DiffConfigs(dbCollection string) error {
-	craws, err := MongoToConfig(dbCollection)
-	if err != nil {
-		return err
-	}
-	log.Print("Total individual records to check (using configDiff): ", len(craws))
-
-	cons := CgArray(craws)
-	log.Print("Number of Vehicles' Configs to audit: ", len(cons))
-
-	err = NewAuditConfigs(cons)
-	if err != nil {
-		return err
-	}
-
-	err = ProcessReducedConfigs()
-	if err != nil {
-		return err
-	}
-
-	// err = AuditConfigs(cons)
-	// if err != nil {
-	// 	return err
-	// }
 	return err
 }
 
