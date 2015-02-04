@@ -476,20 +476,19 @@ func FindVehicleWithAttributes(cBaseID int, cSubmodelID int, partNumber string, 
 	err = stmt.QueryRow(cBaseID, cSubmodelID).Scan(&vId)
 
 	//missing vehicle with these config(s)
-	if err != nil {
+	if err != nil || vId == 0 {
 		if err == sql.ErrNoRows {
 			//no matching vehicle, must create
-			err = createVehicleConfigAttributes(cBaseID, cSubmodelID, partNumber, configAttributeArray)
+			vId, err = createVehicleConfigAttributes(cBaseID, cSubmodelID, partNumber, configAttributeArray)
 			if err != nil {
 				return err
 			}
+		} else {
+			return err
 		}
-		return err
-	} else {
-
-		err = FindPart(vId, partNumber)
-		return err
 	}
+	//find/insert vehiclePart
+	err = FindPart(vId, partNumber)
 
 	return err
 }
@@ -509,26 +508,26 @@ func FindPart(vId int, partNum string) error {
 	return err
 }
 
-func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) error {
-
+func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber string, configAttributeArray []int) (int, error) {
+	var vId int
 	db, err := sql.Open("mysql", database.ConnectionString())
 	if err != nil {
-		return err
+		return vId, err
 	}
 	defer db.Close()
 	log.Print("insert vehicleConfig")
 	//new vehicleConfig
 	stmt, err := db.Prepare(insertVehicleConfigStmt)
 	if err != nil {
-		return err
+		return vId, err
 	}
 	res, err := stmt.Exec()
 	if err != nil {
-		return err
+		return vId, err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		return err
+		return vId, err
 	}
 	vConfigId := int(id)
 
@@ -537,17 +536,17 @@ func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 
 	stmt, err = db.Prepare(vehicleInsertStmt)
 	if err != nil {
-		return err
+		return vId, err
 	}
 	res, err = stmt.Exec(cBaseID, cSubmodelID, vConfigId)
 	if err != nil {
-		return err
+		return vId, err
 	}
 	id, err = res.LastInsertId()
 	if err != nil {
-		return err
+		return vId, err
 	}
-	vId := int(id)
+	vId = int(id)
 
 	//insert vehicleConfigAttribute
 	sqlStmt := `insert into VehicleConfigAttribute (AttributeID, VehicleConfigID) values `
@@ -563,20 +562,21 @@ func createVehicleConfigAttributes(cBaseID int, cSubmodelID int, partNumber stri
 
 	stmt, err = db.Prepare(sqlStmt)
 	if err != nil {
-		return err
+		return vId, err
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec()
 	if err != nil {
-		return err
+		return vId, err
 	}
-	err = FindPart(vId, partNumber)
-	// err = InsertVehiclePart(vId, partNumber)
-	if err != nil {
-		return err
-	}
-	return err
+	return vId, err
+	// err = FindPart(vId, partNumber)
+	// // err = InsertVehiclePart(vId, partNumber)
+	// if err != nil {
+	// 	return err
+	// }
+	// return err
 }
 
 func InsertVehiclePart(vId int, partNum string) error {

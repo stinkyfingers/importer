@@ -5,6 +5,7 @@ import (
 	"github.com/curt-labs/polkImporter/helpers/database"
 	"github.com/curt-labs/polkImporter/v2/configs"
 	_ "github.com/go-sql-driver/mysql"
+	"gopkg.in/mgo.v2"
 	"log"
 	"strconv"
 )
@@ -36,9 +37,17 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	err = DiffConfigsRedux(configCollection, 0, 0) //limit,skip -10000 limit seems to work well
+	//break into 10,000 line segments while running config differentiator
+	seg := 10000
+	collectionLength, err := GetCollectionLength(dbCollection)
 	if err != nil {
 		return err
+	}
+	for y := 0; y <= collectionLength; y += seg {
+		err = DiffConfigsRedux(configCollection, seg, y) //limit,skip -10000 limit seems to work well
+		if err != nil {
+			return err
+		}
 	}
 	return err
 }
@@ -117,4 +126,16 @@ func setMaxConnections(num int) error {
 		return err
 	}
 	return err
+}
+
+func GetCollectionLength(dbCollection string) (int, error) {
+	var length int
+	session, err := mgo.Dial(database.MongoConnectionString().Addrs[0])
+	if err != nil {
+		return length, err
+	}
+	defer session.Close()
+	collection := session.DB("importer").C(dbCollection)
+	length, err = collection.Count()
+	return length, err
 }

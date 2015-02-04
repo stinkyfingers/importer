@@ -3,7 +3,6 @@ package v2
 import (
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
-	// "time"
 )
 
 func TestImporter(t *testing.T) {
@@ -49,46 +48,8 @@ func TestImporter(t *testing.T) {
 		// So(err, ShouldBeNil)
 		// time.Sleep(time.Second * 30)
 		// t.Log(0)
-		err = DiffConfigsRedux("ariesConfigs", 10000, 0000) //usually ariesConfigs - limit,skip
+		err = DiffConfigsRedux("ariesConfigs", 10000, 100000) //usually ariesConfigs - limit,skip
 		So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(10000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 20000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(20000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 30000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(30000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 40000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(40000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 50000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(50000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 60000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(60000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 70000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(70000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 80000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(80000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 90000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(90000)
-		// err = DiffConfigsRedux("ariesConfigs", 10000, 100000) //usually ariesConfigs - limit,skip
-		// So(err, ShouldBeNil)
-		// time.Sleep(time.Second * 30)
-		// t.Log(100000)
 
 		// err = setMaxConnections(151)
 		// So(err, ShouldBeNil)
